@@ -1,7 +1,8 @@
 accelerate launch --config_file "configs/deepspeed_config.yaml"  train_dpo.py \
 --seed 100 \
---model_name_or_path "meta-llama/Llama-2-70b-hf" \
---dataset_name "smangrul/ultrachat-10k-chatml" \
+# --model_name_or_path "meta-llama/Llama-2-70b-hf" \
+--model_name_or_path "../models/Qwen/Qwen2___5-0___5B-Instruct"
+--dataset_name "trl-lib/ultrafeedback_binarized" \
 # --chat_template_format None \  None for default of tokenizer chat template , "chatml" or "zephyr" to init chat format of tokenizer
 --chat_template_format None \ 
 --add_special_tokens False \
