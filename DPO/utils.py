@@ -345,10 +345,10 @@ def create_and_prepare_model_for_dpo(args, data_args, training_args):
     # Chat template and tokenizer configuration
     special_tokens = None
     chat_template = None
-    if args.apply_chat_template == "chatml":
+    if data_args.apply_chat_template == "chatml":
         special_tokens = ChatmlSpecialTokens
         chat_template = DEFAULT_CHATML_CHAT_TEMPLATE
-    elif args.apply_chat_template == "zephyr":
+    elif data_args.apply_chat_template == "zephyr":
         special_tokens = ZephyrSpecialTokens
         chat_template = DEFAULT_ZEPHYR_CHAT_TEMPLATE
 
