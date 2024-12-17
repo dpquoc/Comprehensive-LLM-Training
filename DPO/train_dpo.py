@@ -127,7 +127,6 @@ def main(model_args, data_args, training_args):
     train_dataset, eval_dataset = create_dpo_datasets(
         tokenizer,
         data_args,
-        training_args,
     )
 
     # # trainer
