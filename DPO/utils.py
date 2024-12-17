@@ -269,19 +269,19 @@ def create_dpo_datasets(tokenizer, data_args):
         }
 
     # Apply chat template preprocessing if requested
-    if data_args.apply_chat_template:
+    if data_args.apply_chat_template != "none":
         raw_datasets["train"] = raw_datasets["train"].map(preprocess, batched=False)
         if data_args.splits !="none":
             raw_datasets["test"] = raw_datasets["test"].map(preprocess, batched=False)
 
 
-    # Print dataset statistics and a sample row
-    print(f"Dataset size: {len(raw_datasets["train"])}")
-    print(f"Sample row after preprocessing: {raw_datasets["train"][0]}")
-    if data_args.splits !="none":
-        # Print dataset statistics and a sample row
-        print(f"Dataset size: {len(raw_datasets["test"])}")
-        print(f"Sample row after preprocessing: {raw_datasets["test"][0]}")
+    # Using single quotes inside the f-string
+    print(f"Dataset size: {len(raw_datasets['train'])}")
+    print(f"Sample row after preprocessing: {raw_datasets['train'][0]}")
+
+    if data_args.splits != "none":
+        print(f"Dataset size: {len(raw_datasets['test'])}")
+        print(f"Sample row after preprocessing: {raw_datasets['test'][0]}")
 
     return raw_datasets["train"], raw_datasets["test"]
 
