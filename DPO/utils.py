@@ -277,11 +277,11 @@ def create_dpo_datasets(tokenizer, data_args):
 
     # Using single quotes inside the f-string
     print(f"Dataset size: {len(raw_datasets['train'])}")
-    print(f"Sample row after preprocessing: {raw_datasets['train'][0]}")
+    # print(f"Sample row after preprocessing: {raw_datasets['train'][0]}")
 
     if data_args.splits != "none":
         print(f"Dataset size: {len(raw_datasets['test'])}")
-        print(f"Sample row after preprocessing: {raw_datasets['test'][0]}")
+        # print(f"Sample row after preprocessing: {raw_datasets['test'][0]}")
 
     return raw_datasets["train"], raw_datasets["test"]
 
