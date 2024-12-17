@@ -239,26 +239,18 @@ def create_dpo_datasets(tokenizer, data_args):
     else:
         load_dataset_func = load_dataset
     raw_datasets = DatasetDict()
-    for split in data_args.splits.split(","):
-        try:
-            if split =="none":
-                dataset = load_dataset_func(data_args.dataset_name) # If dataset not in splitted format
-            else:
-                # Try first if dataset on a Hub repo
-                dataset = load_dataset_func(data_args.dataset_name, split=split)
-        except DatasetGenerationError:
-            raise DatasetGenerationError
+    
+    dataset = load_dataset_func(data_args.dataset_name) # If dataset not in splitted format
 
-
-        if "train" in split:
-            raw_datasets["train"] = dataset
-        elif "test" in split:
-            raw_datasets["test"] = dataset
-        elif "none" in split:
-            raw_datasets["train"] = dataset
-            raw_datasets["test"] = None
-        else:
-            raise ValueError(f"Split type {split} not recognized as one of test or train.")
+    if "train" in data_args.splits:
+        raw_datasets["train"] = dataset["train"]
+    elif "test" in data_args.splits:
+        raw_datasets["test"] = dataset["test"]
+    elif "none" in data_args.splits:
+        raw_datasets["train"] = dataset["train"]
+        raw_datasets["test"] = None
+    else:
+        raise ValueError(f"Split type {data_args.splits} not recognized as one of test or train.")
         
     def preprocess(row):
         """
