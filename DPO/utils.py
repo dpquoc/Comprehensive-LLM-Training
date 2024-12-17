@@ -206,7 +206,7 @@ def create_and_prepare_model(args, data_args, training_args):
 
 
 
-def create_dpo_datasets(tokenizer, data_args, apply_chat=True, remove_system=True):
+def create_dpo_datasets(tokenizer, data_args):
     """
     Create and preprocess a dataset for DPO training.
 
@@ -218,7 +218,7 @@ def create_dpo_datasets(tokenizer, data_args, apply_chat=True, remove_system=Tru
     Returns:
         processed_data: The preprocessed dataset.
     """
-    def apply_chat_template(messages, tokenizer, remove_system=remove_system): 
+    def to_apply_chat_template(messages, tokenizer, remove_system_message=data_args.remove_system_message): 
         # Apply chat template
         text = tokenizer.apply_chat_template(
             messages,
@@ -227,43 +227,63 @@ def create_dpo_datasets(tokenizer, data_args, apply_chat=True, remove_system=Tru
         
         # Remove the system message if present
         system_message = "<|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n"
-        if remove_system:
+        if remove_system_message:
             if text.startswith(system_message):
                 text = text[len(system_message):]  # Strip the system message from the start
             
         return text
 
-    dataset=None
-    # Load the dataset without splits
-    try:
-        # Try to load the "train" split if available
-        dataset = load_dataset(data_args.dataset_name, split="train")
-    except DatasetGenerationError:
+    raw_datasets = DatasetDict()
+    for split in data_args.splits.split(","):
         try:
-            # Fallback to loading from a local dataset with "train" subdirectory
-            dataset = load_from_disk(os.path.join(data_args.dataset_name, "train"))
-        except (FileNotFoundError, DatasetGenerationError):
-            # Final fallback: Load the dataset as a whole with no splits
-            dataset = load_dataset(data_args.dataset_name)
+            if split =="none":
+                dataset = load_dataset(data_args.dataset_name) # If dataset not in splitted format
+            else:
+                # Try first if dataset on a Hub repo
+                dataset = load_dataset(data_args.dataset_name, split=split)
+        except DatasetGenerationError:
+            if split =="none":
+                dataset = load_from_disk(os.path.join(data_args.dataset_name)) # If dataset not in splitted format
+            else:
+                # If not, check local dataset
+                dataset = load_from_disk(os.path.join(data_args.dataset_name, split))
 
+
+        if "train" in split:
+            raw_datasets["train"] = dataset
+        elif "test" in split:
+            raw_datasets["test"] = dataset
+        elif "none" in split:
+            raw_datasets["train"] = dataset
+            raw_datasets["test"] = None
+        else:
+            raise ValueError(f"Split type {split} not recognized as one of test or train.")
+        
     def preprocess(row):
         """
         Preprocess each row by applying the chat template to 'chosen' and 'rejected'.
         """
         return {
-            "chosen": apply_chat_template(row["chosen"], tokenizer),
-            "rejected": apply_chat_template(row["rejected"], tokenizer)
+            "chosen": to_apply_chat_template(row["chosen"], tokenizer),
+            "rejected": to_apply_chat_template(row["rejected"], tokenizer)
         }
 
     # Apply chat template preprocessing if requested
-    if apply_chat:
-        dataset = dataset.map(preprocess, batched=False)
+    if data_args.apply_chat_template:
+        raw_datasets["train"] = raw_datasets["train"].map(preprocess, batched=False)
+        if data_args.splits !="none":
+            raw_datasets["test"] = raw_datasets["test"].map(preprocess, batched=False)
+
 
     # Print dataset statistics and a sample row
-    print(f"Dataset size: {len(dataset)}")
-    print(f"Sample row after preprocessing: {dataset[0]}")
+    print(f"Dataset size: {len(raw_datasets["train"])}")
+    print(f"Sample row after preprocessing: {raw_datasets["train"][0]}")
+    if data_args.splits !="none":
+        # Print dataset statistics and a sample row
+        print(f"Dataset size: {len(raw_datasets["test"])}")
+        print(f"Sample row after preprocessing: {raw_datasets["test"][0]}")
 
-    return dataset
+    return raw_datasets["train"], raw_datasets["test"]
 
 
 def create_and_prepare_model_for_dpo(args, data_args, training_args):

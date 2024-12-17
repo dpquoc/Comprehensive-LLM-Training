@@ -19,12 +19,6 @@ class ModelArguments:
     model_name_or_path: str = field(
         metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
     )
-    chat_template_format: Optional[str] = field(
-        default="none",
-        metadata={
-            "help": "chatml|zephyr|none. Pass `none` if the dataset is already formatted with the chat template."
-        },
-    )
     lora_alpha: Optional[int] = field(default=16)
     lora_dropout: Optional[float] = field(default=0.1)
     lora_r: Optional[int] = field(default=64)
@@ -73,12 +67,24 @@ class ModelArguments:
         metadata={"help": "Enables UnSloth for training."},
     )
 
+    
+
 
 @dataclass
 class DataTrainingArguments:
     dataset_name: Optional[str] = field(
         default="timdettmers/openassistant-guanaco",
         metadata={"help": "The preference dataset to use."},
+    )
+    apply_chat_template: Optional[str] = field(
+        default="default",
+        metadata={
+            "help": "default|chatml|zephyr|none. Pass `default` to apply chat template existed in tokenizer. Pass `none` if the dataset is already formatted with the chat template."
+        },
+    )
+    remove_system_message: Optional[str] = field(
+        default=True,
+        metadata={"help": "If True delete the system message in chat if exists"},
     )
     append_concat_token: Optional[bool] = field(
         default=False,
@@ -89,7 +95,7 @@ class DataTrainingArguments:
         metadata={"help": "If True, tokenizers adds special tokens to each sample being packed."},
     )
     splits: Optional[str] = field(
-        default="train,test",
+        default="train,test", # "none" for dataset not in splitted format , and the dataset will be the train dataset
         metadata={"help": "Comma separate list of the splits to use from the dataset."},
     )
 
@@ -122,7 +128,7 @@ def main(model_args, data_args, training_args):
     #     tokenizer,
     #     data_args,
     #     training_args,
-    #     apply_chat_template=model_args.chat_template_format != "none",
+    #     apply_chat_template=model_args.apply_chat != "none",
     # )
 
     # # trainer
