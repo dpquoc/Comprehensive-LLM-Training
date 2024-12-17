@@ -105,31 +105,30 @@ def main(model_args, data_args, training_args):
     set_seed(training_args.seed)
 
     # model
-    model, peft_config, tokenizer = create_and_prepare_model_for_dpo(model_args, data_args, training_args)
-    print(model)
-    print('-----------------')
-    print(peft_config)
-    print('-----------------')
-    print(tokenizer)
+    model, peft_config, tokenizer = create_and_prepare_model(model_args, data_args, training_args)
+    # print(model)
+    # print('-----------------')
+    # print(peft_config)
+    # print('-----------------')
+    # print(tokenizer)
 
-    # # gradient ckpt
-    # model.config.use_cache = not training_args.gradient_checkpointing
-    # training_args.gradient_checkpointing = training_args.gradient_checkpointing and not model_args.use_unsloth
-    # if training_args.gradient_checkpointing:
-    #     training_args.gradient_checkpointing_kwargs = {"use_reentrant": model_args.use_reentrant}
+    # gradient ckpt
+    model.config.use_cache = not training_args.gradient_checkpointing
+    training_args.gradient_checkpointing = training_args.gradient_checkpointing and not model_args.use_unsloth
+    if training_args.gradient_checkpointing:
+        training_args.gradient_checkpointing_kwargs = {"use_reentrant": model_args.use_reentrant}
 
-    # training_args.dataset_kwargs = {
-    #     "append_concat_token": data_args.append_concat_token,
-    #     "add_special_tokens": data_args.add_special_tokens,
-    # }
+    training_args.dataset_kwargs = {
+        "append_concat_token": data_args.append_concat_token,
+        "add_special_tokens": data_args.add_special_tokens,
+    }
 
-    # # datasets
-    # train_dataset, eval_dataset = create_datasets(
-    #     tokenizer,
-    #     data_args,
-    #     training_args,
-    #     apply_chat_template=model_args.apply_chat != "none",
-    # )
+    # datasets
+    train_dataset, eval_dataset = create_dpo_datasets(
+        tokenizer,
+        data_args,
+        training_args,
+    )
 
     # # trainer
     # trainer = DPOTrainer(
