@@ -287,7 +287,8 @@ def create_dpo_datasets(tokenizer, data_args):
 
 
 def create_and_prepare_model_for_dpo(args, data_args, training_args):
-
+    quant_storage_dtype = None  # Initialize with default value
+    
     if args.use_4bit_quantization:
         compute_dtype = getattr(torch, args.bnb_4bit_compute_dtype)
         quant_storage_dtype = getattr(torch, args.bnb_4bit_quant_storage_dtype)
@@ -306,13 +307,19 @@ def create_and_prepare_model_for_dpo(args, data_args, training_args):
                 print("=" * 80)
                 print("Your GPU supports bfloat16, you can accelerate training with the argument --bf16")
                 print("=" * 80)
-        elif args.use_8bit_quantization:
-            bnb_config = BitsAndBytesConfig(load_in_8bit=args.use_8bit_quantization)
 
-    
+    elif args.use_8bit_quantization:
+        bnb_config = BitsAndBytesConfig(load_in_8bit=args.use_8bit_quantization)
+
+    else:
+        bnb_config = None  # Ensure bnb_config is always defined
+
+    # Define torch_dtype with fallback logic
     torch_dtype = (
         quant_storage_dtype if quant_storage_dtype and quant_storage_dtype.is_floating_point else torch.float32
     )
+    
+    # Load the model
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name_or_path,
         quantization_config=bnb_config,
@@ -320,10 +327,10 @@ def create_and_prepare_model_for_dpo(args, data_args, training_args):
         attn_implementation="flash_attention_2" if args.use_flash_attn else "eager",
         torch_dtype=torch_dtype,
     )
-
+    
+    # PEFT configuration
     peft_config = None
-    chat_template = None
-    if args.use_peft_lora :
+    if args.use_peft_lora:
         peft_config = LoraConfig(
             lora_alpha=args.lora_alpha,
             lora_dropout=args.lora_dropout,
@@ -335,6 +342,7 @@ def create_and_prepare_model_for_dpo(args, data_args, training_args):
             else args.lora_target_modules,
         )
 
+    # Chat template and tokenizer configuration
     special_tokens = None
     chat_template = None
     if args.apply_chat_template == "chatml":
@@ -355,19 +363,14 @@ def create_and_prepare_model_for_dpo(args, data_args, training_args):
         )
         tokenizer.chat_template = chat_template
 
-        # make embedding resizing configurable?
-        # Transformers 4.46.0+ defaults uses mean_resizing by default, which fails with QLoRA + FSDP because the
-        # embedding could be on meta device, therefore, we set mean_resizing=False in that case (i.e. the status quo
-        # ante). See https://github.com/huggingface/accelerate/issues/1620.
+        # Handle embedding resizing
         uses_transformers_4_46 = packaging.version.parse(transformers.__version__) >= packaging.version.parse("4.46.0")
-        uses_fsdp = os.environ.get("ACCELERATE_USE_FSDP").lower() == "true"
+        uses_fsdp = os.environ.get("ACCELERATE_USE_FSDP", "").lower() == "true"
         if (bnb_config is not None) and uses_fsdp and uses_transformers_4_46:
             model.resize_token_embeddings(len(tokenizer), pad_to_multiple_of=8, mean_resizing=False)
         else:
             model.resize_token_embeddings(len(tokenizer), pad_to_multiple_of=8)
     else:
         tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, trust_remote_code=True)
-        # tokenizer.pad_token = tokenizer.eos_token # Qwen has its own pad_token, so no need to change
-
 
     return model, peft_config, tokenizer
