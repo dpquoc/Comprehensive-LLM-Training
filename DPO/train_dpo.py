@@ -86,6 +86,10 @@ class DataTrainingArguments:
         default=True,
         metadata={"help": "If True delete the system message in chat if exists"},
     )
+    is_local_data: Optional[str] = field(
+        default=False,
+        metadata={"help": "If True , load data from local disk, if not load data from huggingface id"},
+    )
     append_concat_token: Optional[bool] = field(
         default=False,
         metadata={"help": "If True, appends `eos_token_id` at the end of each sample being packed."},

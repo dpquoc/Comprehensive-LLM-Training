@@ -233,20 +233,21 @@ def create_dpo_datasets(tokenizer, data_args):
             
         return text
 
+    load_dataset_func = None
+    if data_args.is_local_data:
+        load_dataset_func = load_from_disk
+    else:
+        load_dataset_func = load_dataset
     raw_datasets = DatasetDict()
     for split in data_args.splits.split(","):
         try:
             if split =="none":
-                dataset = load_dataset(data_args.dataset_name) # If dataset not in splitted format
+                dataset = load_dataset_func(data_args.dataset_name) # If dataset not in splitted format
             else:
                 # Try first if dataset on a Hub repo
-                dataset = load_dataset(data_args.dataset_name, split=split)
+                dataset = load_dataset_func(data_args.dataset_name, split=split)
         except DatasetGenerationError:
-            if split =="none":
-                dataset = load_from_disk(os.path.join(data_args.dataset_name)) # If dataset not in splitted format
-            else:
-                # If not, check local dataset
-                dataset = load_from_disk(os.path.join(data_args.dataset_name, split))
+            raise DatasetGenerationError
 
 
         if "train" in split:
