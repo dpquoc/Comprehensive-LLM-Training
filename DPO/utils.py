@@ -244,12 +244,12 @@ def create_dpo_datasets(tokenizer, data_args):
 
     if "train" in data_args.splits:
         raw_datasets["train"] = dataset["train"]
-    elif "test" in data_args.splits:
+    if "test" in data_args.splits:
         raw_datasets["test"] = dataset["test"]
-    elif "none" in data_args.splits:
+    if "none" in data_args.splits:
         raw_datasets["train"] = dataset["train"]
         raw_datasets["test"] = None
-    else:
+    if (not "train" in data_args.splits) and (not "test" in data_args.splits) and (not "none" in data_args.splits):
         raise ValueError(f"Split type {data_args.splits} not recognized as one of test or train.")
         
     def preprocess(row):
@@ -264,7 +264,7 @@ def create_dpo_datasets(tokenizer, data_args):
     # Apply chat template preprocessing if requested
     if data_args.apply_chat_template != "none":
         raw_datasets["train"] = raw_datasets["train"].map(preprocess, batched=False)
-        if data_args.splits !="none":
+        if data_args.splits != "none":
             raw_datasets["test"] = raw_datasets["test"].map(preprocess, batched=False)
 
 
