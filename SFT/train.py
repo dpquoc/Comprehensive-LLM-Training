@@ -98,7 +98,7 @@ class DataTrainingArguments:
     )
     my_max_len: Optional[int] = field(
         default=2048,
-        metadata={"Max length of sequence data"},
+        metadata={"help": "Max length of sequence data"}  # Changed from set to dictionary
     )
     append_concat_token: Optional[bool] = field(
         default=False,
