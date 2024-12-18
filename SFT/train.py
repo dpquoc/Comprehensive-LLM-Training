@@ -78,10 +78,10 @@ class ModelArguments:
 
 @dataclass
 class DataTrainingArguments:
-    dataset_name: Optional[str] = field(
-        default="timdettmers/openassistant-guanaco",
-        metadata={"help": "The preference dataset to use."},
-    )
+    # dataset_name: Optional[str] = field(
+    #     default="timdettmers/openassistant-guanaco",
+    #     metadata={"help": "The preference dataset to use."},
+    # )
     apply_chat_template: Optional[str] = field(
         default="default",
         metadata={
@@ -91,10 +91,6 @@ class DataTrainingArguments:
     remove_system_message: Optional[str] = field(
         default=True,
         metadata={"help": "If True delete the system message in chat if exists"},
-    )
-    is_local_data: Optional[str] = field(
-        default=False,
-        metadata={"help": "If True , load data from local disk, if not load data from huggingface id"},
     )
     my_max_len: Optional[int] = field(
         default=2048,
