@@ -4,8 +4,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from transformers import HfArgumentParser, set_seed
-from trl import DPOConfig, DPOTrainer
-from utils import create_and_prepare_model_for_dpo, create_dpo_datasets
+from trl import SFTConfig, SFTTrainer
+from utils import create_and_prepare_model, make_supervised_data_module
 
 
 # Define and parse arguments.
@@ -17,6 +17,12 @@ class ModelArguments:
 
     model_name_or_path: str = field(
         metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
+    )
+    model_max_length: int = field(
+        default=8192,
+        metadata={
+            "help": "Maximum sequence length. Sequences will be right padded (and possibly truncated)."
+        },
     )
     lora_alpha: Optional[int] = field(default=16)
     lora_dropout: Optional[float] = field(default=0.1)
@@ -65,6 +71,7 @@ class ModelArguments:
         default=False,
         metadata={"help": "Enables UnSloth for training."},
     )
+    
 
     
 
@@ -89,6 +96,10 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "If True , load data from local disk, if not load data from huggingface id"},
     )
+    my_max_len: Optional[int] = field(
+        default=2048,
+        metadata={"Max length of sequence data"},
+    )
     append_concat_token: Optional[bool] = field(
         default=False,
         metadata={"help": "If True, appends `eos_token_id` at the end of each sample being packed."},
@@ -103,17 +114,13 @@ class DataTrainingArguments:
     )
 
 
+
 def main(model_args, data_args, training_args):
     # Set seed for reproducibility
     set_seed(training_args.seed)
 
     # model
-    model, peft_config, tokenizer = create_and_prepare_model_for_dpo(model_args, data_args, training_args)
-    # print(model)
-    # print('-----------------')
-    # print(peft_config)
-    # print('-----------------')
-    # print(tokenizer)
+    model, peft_config, tokenizer = create_and_prepare_model(model_args, data_args)
 
     # gradient ckpt
     model.config.use_cache = not training_args.gradient_checkpointing
@@ -127,19 +134,15 @@ def main(model_args, data_args, training_args):
     }
 
     # datasets
-    train_dataset, eval_dataset = create_dpo_datasets(
-        tokenizer,
-        data_args,
-    )
+    data_module = make_supervised_data_module(tokenizer, data_args, max_len=data_args.my_max_len)
 
     # trainer
-    trainer = DPOTrainer(
+    trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
         args=training_args,
-        train_dataset=train_dataset,
-        # eval_dataset=eval_dataset,
         peft_config=peft_config,
+        **data_module
     )
     trainer.accelerator.print(f"{trainer.model}")
     if hasattr(trainer.model, "print_trainable_parameters"):
@@ -158,7 +161,7 @@ def main(model_args, data_args, training_args):
 
 
 if __name__ == "__main__":
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, DPOConfig))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, SFTConfig))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
