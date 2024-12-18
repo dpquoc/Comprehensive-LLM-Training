@@ -112,6 +112,13 @@ class DataTrainingArguments:
         default="train,test", # "none" for dataset not in splitted format , and the dataset will be the train dataset
         metadata={"help": "Comma separate list of the splits to use from the dataset."},
     )
+    data_path: str = field(
+        default=None, metadata={"help": "Path to the training data."} 
+    )
+    eval_data_path: str = field(
+        default=None, metadata={"help": "Path to the evaluation data."}
+    )
+    lazy_preprocess: bool = False
 
 
 
