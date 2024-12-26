@@ -69,7 +69,7 @@ def preprocess(
     # Apply prompt templates
     input_ids, targets = [], []
     for i, source in enumerate(sources):
-        if roles[source[0]["from"]] != roles["user"]:
+        if roles[source[0]["role"]] != roles["user"]:
             source = source[1:]
 
         input_id, target = [], []
@@ -78,9 +78,9 @@ def preprocess(
         target += [im_start] + [IGNORE_TOKEN_ID] * (len(system)-3) + [im_end] + nl_tokens
         assert len(input_id) == len(target)
         for j, sentence in enumerate(source):
-            role = roles[sentence["from"]]
+            role = roles[sentence["role"]]
             _input_id = tokenizer(role).input_ids + nl_tokens + \
-                tokenizer(sentence["value"]).input_ids + [im_end] + nl_tokens
+                tokenizer(sentence["content"]).input_ids + [im_end] + nl_tokens
             input_id += _input_id
             if role == '<|im_start|>user':
                 _target = [im_start] + [IGNORE_TOKEN_ID] * (len(_input_id)-3) + [im_end] + nl_tokens
