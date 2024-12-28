@@ -2,11 +2,19 @@ import os
 import sys
 from dataclasses import dataclass, field
 from typing import Optional
-
-from transformers import HfArgumentParser, set_seed
-from trl import SFTConfig, SFTTrainer
-from utils import create_and_prepare_model, make_supervised_data_module
-
+import torch
+from sklearn.metrics import log_loss, accuracy_score
+from transformers import (
+    HfArgumentParser,
+    set_seed,
+    EvalPrediction,
+    Trainer,
+    TrainingArguments,
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    DataCollatorWithPadding
+)
+from utils import make_supervised_data_module, create_and_prepare_model
 
 # Define and parse arguments.
 @dataclass
@@ -23,6 +31,10 @@ class ModelArguments:
         metadata={
             "help": "Maximum sequence length. Sequences will be right padded (and possibly truncated)."
         },
+    )
+    num_labels: int = field(
+    default=2,
+    metadata={"help": "Number of labels for classification"}
     )
     lora_alpha: Optional[int] = field(default=16)
     lora_dropout: Optional[float] = field(default=0.1)
@@ -96,6 +108,10 @@ class DataTrainingArguments:
         default=2048,
         metadata={"help": "Max length of sequence data"}  # Changed from set to dictionary
     )
+    spread_max_length: Optional[str] = field(
+        default=False,
+        metadata={"help": "If True delete spread the max length over all prompt and repsonses"},
+    )
     append_concat_token: Optional[bool] = field(
         default=False,
         metadata={"help": "If True, appends `eos_token_id` at the end of each sample being packed."},
@@ -118,57 +134,63 @@ class DataTrainingArguments:
 
 
 
+def compute_metrics(eval_preds: EvalPrediction) -> dict:
+    preds = eval_preds.predictions
+    labels = eval_preds.label_ids
+    probs = torch.from_numpy(preds).float().softmax(-1).numpy()
+    loss = log_loss(y_true=labels, y_pred=probs)
+    acc = accuracy_score(y_true=labels, y_pred=preds.argmax(-1))
+    return {"acc": acc, "log_loss": loss}
+
+
 def main(model_args, data_args, training_args):
     # Set seed for reproducibility
     set_seed(training_args.seed)
-
-    # model
-    model, peft_config, tokenizer = create_and_prepare_model(model_args, data_args)
-
-    # gradient ckpt
+    
+    # Model and tokenizer
+    model, tokenizer = create_and_prepare_model(model_args, data_args)
+    
+    # Gradient checkpointing setup
     model.config.use_cache = not training_args.gradient_checkpointing
-    training_args.gradient_checkpointing = training_args.gradient_checkpointing and not model_args.use_unsloth
     if training_args.gradient_checkpointing:
         training_args.gradient_checkpointing_kwargs = {"use_reentrant": model_args.use_reentrant}
-
-    training_args.dataset_kwargs = {
-        "append_concat_token": data_args.append_concat_token,
-        "add_special_tokens": data_args.add_special_tokens,
-    }
-
-    # datasets
+    
+    # Dataset preparation
     data_module = make_supervised_data_module(tokenizer, data_args, max_len=data_args.my_max_len)
-
-    # trainer
-    trainer = SFTTrainer(
+    train_dataset = data_module["train_dataset"]
+    eval_dataset = data_module["eval_dataset"]
+    
+    # Initialize trainer
+    trainer = Trainer(
         model=model,
-        tokenizer=tokenizer,
         args=training_args,
-        peft_config=peft_config,
-        **data_module
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        tokenizer=tokenizer,
+        compute_metrics=compute_metrics,
+        data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
     )
+    
+    # Print model information
     trainer.accelerator.print(f"{trainer.model}")
-    if hasattr(trainer.model, "print_trainable_parameters"):
-        trainer.model.print_trainable_parameters()
-
-    # train
+    
+    # Training
     checkpoint = None
     if training_args.resume_from_checkpoint is not None:
         checkpoint = training_args.resume_from_checkpoint
     trainer.train(resume_from_checkpoint=checkpoint)
-
-    # saving final model
+    
+    # Save the final model
     if trainer.is_fsdp_enabled:
         trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
     trainer.save_model()
 
-
 if __name__ == "__main__":
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, SFTConfig))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
-        # If we pass only one argument to the script and it's the path to a json file,
-        # let's parse it to get our arguments.
-        model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args = parser.parse_json_file(
+            json_file=os.path.abspath(sys.argv[1])
+        )
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     main(model_args, data_args, training_args)

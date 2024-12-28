@@ -14,6 +14,8 @@ from transformers import (
     AutoTokenizer,
     BitsAndBytesConfig,
 )
+import pandas as pd
+
 
 from typing import Dict, Optional, List
 from peft import LoraConfig
@@ -158,6 +160,25 @@ class LazySupervisedDataset(Dataset):
 
         return ret
 
+def load_data(file_path: str) -> Union[List, pd.DataFrame]:
+    """Load data from a file, supporting JSON, CSV, Excel, and Parquet."""
+    _, file_extension = os.path.splitext(file_path)
+    
+    if file_extension.lower() == ".json":
+        with open(file_path, "r") as f:
+            return json.load(f)
+    elif file_extension.lower() == ".csv":
+        return pd.read_csv(file_path)
+    elif file_extension.lower() in [".xls", ".xlsx"]:
+        return pd.read_excel(file_path)
+    elif file_extension.lower() == ".parquet":
+        return pd.read_parquet(file_path)
+    else:
+        raise ValueError(
+            f"Unsupported file extension: {file_extension}. "
+            "Supported formats are JSON, CSV, Excel, and Parquet."
+        )
+
 def make_supervised_data_module(
     tokenizer: transformers.PreTrainedTokenizer, data_args, max_len=2048,
 ) -> Dict:
@@ -166,12 +187,18 @@ def make_supervised_data_module(
         LazySupervisedDataset if data_args.lazy_preprocess else SupervisedDataset
     )
 
-    train_json = json.load(open(data_args.data_path, "r"))
-    train_dataset = dataset_cls(train_json, tokenizer=tokenizer, max_len=max_len)
+    # Load training data
+    train_data = load_data(data_args.data_path)
+    train_dataset = dataset_cls(
+        train_data, tokenizer=tokenizer, max_len=data_args.my_max_len
+    )
 
+    # Load evaluation data if provided
     if data_args.eval_data_path:
-        eval_json = json.load(open(data_args.eval_data_path, "r"))
-        eval_dataset = dataset_cls(eval_json, tokenizer=tokenizer, max_len=max_len)
+        eval_data = load_data(data_args.eval_data_path)
+        eval_dataset = dataset_cls(
+            eval_data, tokenizer=tokenizer, max_len=data_args.my_max_len
+        )
     else:
         eval_dataset = None
 

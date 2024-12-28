@@ -13,9 +13,10 @@ from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
+    AutoModelForSequenceClassification
 )
-
-from typing import Dict, Optional, List
+import pandas as pd
+from typing import Dict, Optional, List, Union
 from peft import LoraConfig
 
 
@@ -62,7 +63,7 @@ def preprocess(
     Preprocess the input data for the model.
     
     Args:
-        sources: Dictionary containing 'prompt', 'response_a', 'response_b'
+        sources: Dictionary containing 'prompt', 'response_a', 'response_b', and 'winner'
         tokenizer: The tokenizer to use
         max_len: Maximum sequence length
         spread_max_length: Whether to equally distribute max_length among components
@@ -78,9 +79,9 @@ def preprocess(
     
     # Process prompts and responses
     custom_prompt = (
-    "Read the following prompt carefully. Compare the two responses provided "
-    "and determine which response better addresses the user's needs.\n\n"
-)
+        "Read the following prompt carefully. Compare the two responses provided "
+        "and determine which response better addresses the user's needs.\n\n"
+    )
     prompts = [custom_prompt + "<prompt>: " + p for p in sources["prompt"]]
     responses_a = ["\n\n<response_a>: " + r_a for r_a in sources["response_a"]]
     responses_b = ["\n\n<response_b>: " + r_b for r_b in sources["response_b"]]
@@ -124,23 +125,62 @@ def preprocess(
     
     # Convert to tensor and create attention mask
     input_ids = torch.tensor(input_ids, dtype=torch.int)
+    attention_mask = input_ids.ne(tokenizer.pad_token_id)
+
+    # Handle the winner labels
+    labels = []
+    winners = sources.get("winner", [])
+    
+    for winner in winners:
+        if winner == 'model_a':
+            label = 0
+        elif winner == 'model_b':
+            label = 1
+        else:
+            continue  # Skip invalid labels
+            
+        labels.append(label)
+    
+    # Convert labels to tensor
+    labels = torch.tensor(labels, dtype=torch.long)
     
     return dict(
         input_ids=input_ids,
-        attention_mask=input_ids.ne(tokenizer.pad_token_id),
+        attention_mask=attention_mask,
+        labels=labels,
     )
+
 
 class SupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
 
-    def __init__(self, raw_data, tokenizer: transformers.PreTrainedTokenizer, max_len: int):
+    def __init__(self, raw_data: Union[List, pd.DataFrame], tokenizer: transformers.PreTrainedTokenizer, max_len: int):
         super(SupervisedDataset, self).__init__()
-        sources = [example["conversations"] for example in raw_data]
+        
+        # Process raw data to consistent format
+        sources = self._process_raw_data(raw_data)
+        
+        # Let preprocess handle the full dictionary including conversations and winner
         data_dict = preprocess(sources, tokenizer, max_len)
 
         self.input_ids = data_dict["input_ids"]
         self.labels = data_dict["labels"]
         self.attention_mask = data_dict["attention_mask"]
+
+    def _process_raw_data(self, raw_data: Union[List, pd.DataFrame]) -> List:
+        """Convert input data to list format."""
+        if isinstance(raw_data, list):
+            return raw_data
+        
+        elif isinstance(raw_data, pd.DataFrame):
+            # Convert DataFrame to list of dictionaries
+            return raw_data.to_dict('records')
+        
+        else:
+            raise TypeError(
+                f"Unsupported input type: {type(raw_data)}. "
+                "Please provide a list or pandas DataFrame."
+            )
 
     def __len__(self):
         return len(self.input_ids)
@@ -152,18 +192,29 @@ class SupervisedDataset(Dataset):
             attention_mask=self.attention_mask[i],
         )
 
-
 class LazySupervisedDataset(Dataset):
-    """Dataset for supervised fine-tuning."""
+    """Dataset for supervised fine-tuning with lazy loading."""
 
-    def __init__(self, raw_data, tokenizer: transformers.PreTrainedTokenizer, max_len: int):
+    def __init__(self, raw_data: Union[List, pd.DataFrame], tokenizer: transformers.PreTrainedTokenizer, max_len: int):
         super(LazySupervisedDataset, self).__init__()
         self.tokenizer = tokenizer
         self.max_len = max_len
-
-        self.tokenizer = tokenizer
-        self.raw_data = raw_data
+        self.raw_data = self._process_raw_data(raw_data)
         self.cached_data_dict = {}
+
+    def _process_raw_data(self, raw_data: Union[List, pd.DataFrame]) -> List:
+        """Convert input data to list format."""
+        if isinstance(raw_data, list):
+            return raw_data
+        
+        elif isinstance(raw_data, pd.DataFrame):
+            return raw_data.to_dict('records')
+        
+        else:
+            raise TypeError(
+                f"Unsupported input type: {type(raw_data)}. "
+                "Please provide a list or pandas DataFrame."
+            )
 
     def __len__(self):
         return len(self.raw_data)
@@ -172,15 +223,35 @@ class LazySupervisedDataset(Dataset):
         if i in self.cached_data_dict:
             return self.cached_data_dict[i]
 
-        ret = preprocess([self.raw_data[i]["conversations"]], self.tokenizer, self.max_len)
-        ret = dict(
-            input_ids=ret["input_ids"][0],
-            labels=ret["labels"][0],
-            attention_mask=ret["attention_mask"][0],
-        )
+        ret = preprocess([self.raw_data[i]], self.tokenizer, self.max_len)
+        ret = {
+            'input_ids': ret['input_ids'][0],
+            'attention_mask': ret['attention_mask'][0],
+            'labels': ret['labels'][0]
+        }
         self.cached_data_dict[i] = ret
 
         return ret
+
+
+def load_data(file_path: str) -> Union[List, pd.DataFrame]:
+    """Load data from a file, supporting JSON, CSV, Excel, and Parquet."""
+    _, file_extension = os.path.splitext(file_path)
+    
+    if file_extension.lower() == ".json":
+        with open(file_path, "r") as f:
+            return json.load(f)
+    elif file_extension.lower() == ".csv":
+        return pd.read_csv(file_path)
+    elif file_extension.lower() in [".xls", ".xlsx"]:
+        return pd.read_excel(file_path)
+    elif file_extension.lower() == ".parquet":
+        return pd.read_parquet(file_path)
+    else:
+        raise ValueError(
+            f"Unsupported file extension: {file_extension}. "
+            "Supported formats are JSON, CSV, Excel, and Parquet."
+        )
 
 def make_supervised_data_module(
     tokenizer: transformers.PreTrainedTokenizer, data_args, max_len=2048,
@@ -190,18 +261,22 @@ def make_supervised_data_module(
         LazySupervisedDataset if data_args.lazy_preprocess else SupervisedDataset
     )
 
-    train_json = json.load(open(data_args.data_path, "r"))
-    train_dataset = dataset_cls(train_json, tokenizer=tokenizer, max_len=max_len)
+    # Load training data
+    train_data = load_data(data_args.data_path)
+    train_dataset = dataset_cls(
+        train_data, tokenizer=tokenizer, max_len=data_args.my_max_len, spread_max_length=data_args.spread_max_length
+    )
 
+    # Load evaluation data if provided
     if data_args.eval_data_path:
-        eval_json = json.load(open(data_args.eval_data_path, "r"))
-        eval_dataset = dataset_cls(eval_json, tokenizer=tokenizer, max_len=max_len)
+        eval_data = load_data(data_args.eval_data_path)
+        eval_dataset = dataset_cls(
+            eval_data, tokenizer=tokenizer, max_len=data_args.my_max_len, spread_max_length=data_args.spread_max_length
+        )
     else:
         eval_dataset = None
 
     return dict(train_dataset=train_dataset, eval_dataset=eval_dataset)
-
-
 
 def create_and_prepare_model(args, data_args):
     bnb_config = None
@@ -231,7 +306,7 @@ def create_and_prepare_model(args, data_args):
     torch_dtype = (
         quant_storage_dtype if quant_storage_dtype and quant_storage_dtype.is_floating_point else torch.float32
     )
-    model = AutoModelForCausalLM.from_pretrained(
+    model = AutoModelForSequenceClassification.from_pretrained(
         args.model_name_or_path,
         quantization_config=bnb_config,
         trust_remote_code=True,
