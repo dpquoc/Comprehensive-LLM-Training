@@ -108,7 +108,7 @@ class DataTrainingArguments:
         default=2048,
         metadata={"help": "Max length of sequence data"}  # Changed from set to dictionary
     )
-    spread_max_length: Optional[str] = field(
+    spread_max_length: Optional[bool] = field(
         default=False,
         metadata={"help": "If True delete spread the max length over all prompt and repsonses"},
     )
