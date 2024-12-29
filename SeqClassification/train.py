@@ -146,6 +146,10 @@ def main(model_args, data_args, training_args):
     # Model and tokenizer
     model, peft_config, tokenizer = create_and_prepare_model(model_args, data_args)
     
+    if peft_config is not None:
+        model = get_peft_model(model, peft_config)
+        model.print_trainable_parameters()
+
     # Gradient checkpointing setup
     model.config.use_cache = not training_args.gradient_checkpointing
     if training_args.gradient_checkpointing:
@@ -164,7 +168,7 @@ def main(model_args, data_args, training_args):
         eval_dataset=eval_dataset,
         tokenizer=tokenizer,
         compute_metrics=compute_metrics,
-        peft_config=peft_config,
+        # peft_config=peft_config,
 
         # data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
     )
