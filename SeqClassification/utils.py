@@ -167,6 +167,31 @@ class SupervisedDataset(Dataset):
         self.labels = data_dict["labels"]
         self.attention_mask = data_dict["attention_mask"]
 
+    def _process_raw_data(self, raw_data: Union[List, pd.DataFrame]) -> List:
+        """Convert input data to list format."""
+        if isinstance(raw_data, list):
+            return raw_data
+        
+        elif isinstance(raw_data, pd.DataFrame):
+            # Convert DataFrame to list of dictionaries
+            return raw_data.to_dict('records')
+        
+        else:
+            raise TypeError(
+                f"Unsupported input type: {type(raw_data)}. "
+                "Please provide a list or pandas DataFrame."
+            )
+
+    def __len__(self):
+        return len(self.input_ids)
+
+    def __getitem__(self, i) -> Dict[str, torch.Tensor]:
+        return dict(
+            input_ids=self.input_ids[i],
+            labels=self.labels[i],
+            attention_mask=self.attention_mask[i],
+        )
+
 class LazySupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning with lazy loading."""
 
@@ -177,6 +202,23 @@ class LazySupervisedDataset(Dataset):
         self.spread_max_length = spread_max_length
         self.raw_data = self._process_raw_data(raw_data)
         self.cached_data_dict = {}
+
+    def _process_raw_data(self, raw_data: Union[List, pd.DataFrame]) -> List:
+        """Convert input data to list format."""
+        if isinstance(raw_data, list):
+            return raw_data
+        
+        elif isinstance(raw_data, pd.DataFrame):
+            return raw_data.to_dict('records')
+        
+        else:
+            raise TypeError(
+                f"Unsupported input type: {type(raw_data)}. "
+                "Please provide a list or pandas DataFrame."
+            )
+
+    def __len__(self):
+        return len(self.raw_data)
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
         if i in self.cached_data_dict:
@@ -191,7 +233,6 @@ class LazySupervisedDataset(Dataset):
         self.cached_data_dict[i] = ret
 
         return ret
-
 
 def load_data(file_path: str) -> Union[List, pd.DataFrame]:
     """Load data from a file, supporting JSON, CSV, Excel, and Parquet."""
