@@ -52,7 +52,6 @@ class ChatmlSpecialTokens(str, Enum):
         return [c.value for c in cls]
 
 
-
 def preprocess(
     sources: Dict,
     tokenizer: transformers.PreTrainedTokenizer,
@@ -63,11 +62,26 @@ def preprocess(
     Preprocess the input data for the model.
     
     Args:
-        sources: Dictionary containing 'prompt', 'response_a', 'response_b', and 'winner'
+        sources: Either a dictionary with lists as values, or a list of dictionaries
         tokenizer: The tokenizer to use
         max_len: Maximum sequence length
         spread_max_length: Whether to equally distribute max_length among components
     """
+    # Convert list of dicts to dict of lists if necessary
+    if isinstance(sources, list):
+        converted_sources = {
+            "prompt": [],
+            "response_a": [],
+            "response_b": [],
+            "winner": []
+        }
+        for item in sources:
+            converted_sources["prompt"].append(item["prompt"])
+            converted_sources["response_a"].append(item["response_a"])
+            converted_sources["response_b"].append(item["response_b"])
+            converted_sources["winner"].append(item["winner"])
+        sources = converted_sources
+    
     # Define special tokens
     im_start = tokenizer.convert_tokens_to_ids('<|im_start|>')
     im_end = tokenizer.convert_tokens_to_ids('<|im_end|>')
@@ -86,6 +100,7 @@ def preprocess(
     responses_a = ["\n\n<response_a>: " + r_a for r_a in sources["response_a"]]
     responses_b = ["\n\n<response_b>: " + r_b for r_b in sources["response_b"]]
     
+    # Rest of the function remains the same
     if spread_max_length:
         special_tokens_length = len([im_start] + user_tokens + [im_end] + [im_start] + assistant_tokens)
         component_max_len = (max_len - special_tokens_length) // 3
@@ -100,7 +115,6 @@ def preprocess(
         
         input_ids = []
         for p_tok, ra_tok, rb_tok in zip(prompt_tokens, response_a_tokens, response_b_tokens):
-            # Combine tokens and add padding
             sequence = [im_start] + user_tokens + p_tok + ra_tok + rb_tok + [im_end] + [im_start] + assistant_tokens
             sequence = sequence[:max_len]
             sequence += [tokenizer.pad_token_id] * (max_len - len(sequence))
@@ -149,7 +163,6 @@ def preprocess(
         attention_mask=attention_mask,
         labels=labels,
     )
-
 
 class SupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
