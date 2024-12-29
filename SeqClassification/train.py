@@ -120,10 +120,6 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "If True, tokenizers adds special tokens to each sample being packed."},
     )
-    splits: Optional[str] = field(
-        default="train,test", # "none" for dataset not in splitted format , and the dataset will be the train dataset
-        metadata={"help": "Comma separate list of the splits to use from the dataset."},
-    )
     data_path: str = field(
         default=None, metadata={"help": "Path to the training data."} 
     )
@@ -148,7 +144,7 @@ def main(model_args, data_args, training_args):
     set_seed(training_args.seed)
     
     # Model and tokenizer
-    model, tokenizer = create_and_prepare_model(model_args, data_args)
+    model, peft_config, tokenizer = create_and_prepare_model(model_args, data_args)
     
     # Gradient checkpointing setup
     model.config.use_cache = not training_args.gradient_checkpointing
@@ -168,7 +164,9 @@ def main(model_args, data_args, training_args):
         eval_dataset=eval_dataset,
         tokenizer=tokenizer,
         compute_metrics=compute_metrics,
-        data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
+        peft_config=peft_config,
+
+        # data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
     )
     
     # Print model information
