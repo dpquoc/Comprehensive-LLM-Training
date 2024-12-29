@@ -154,76 +154,35 @@ def preprocess(
 class SupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
 
-    def __init__(self, raw_data: Union[List, pd.DataFrame], tokenizer: transformers.PreTrainedTokenizer, max_len: int):
+    def __init__(self, raw_data: Union[List, pd.DataFrame], tokenizer: transformers.PreTrainedTokenizer, max_len: int, spread_max_length: bool = False):
         super(SupervisedDataset, self).__init__()
         
         # Process raw data to consistent format
         sources = self._process_raw_data(raw_data)
         
         # Let preprocess handle the full dictionary including conversations and winner
-        data_dict = preprocess(sources, tokenizer, max_len)
+        data_dict = preprocess(sources, tokenizer, max_len, spread_max_length)
 
         self.input_ids = data_dict["input_ids"]
         self.labels = data_dict["labels"]
         self.attention_mask = data_dict["attention_mask"]
 
-    def _process_raw_data(self, raw_data: Union[List, pd.DataFrame]) -> List:
-        """Convert input data to list format."""
-        if isinstance(raw_data, list):
-            return raw_data
-        
-        elif isinstance(raw_data, pd.DataFrame):
-            # Convert DataFrame to list of dictionaries
-            return raw_data.to_dict('records')
-        
-        else:
-            raise TypeError(
-                f"Unsupported input type: {type(raw_data)}. "
-                "Please provide a list or pandas DataFrame."
-            )
-
-    def __len__(self):
-        return len(self.input_ids)
-
-    def __getitem__(self, i) -> Dict[str, torch.Tensor]:
-        return dict(
-            input_ids=self.input_ids[i],
-            labels=self.labels[i],
-            attention_mask=self.attention_mask[i],
-        )
-
 class LazySupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning with lazy loading."""
 
-    def __init__(self, raw_data: Union[List, pd.DataFrame], tokenizer: transformers.PreTrainedTokenizer, max_len: int):
+    def __init__(self, raw_data: Union[List, pd.DataFrame], tokenizer: transformers.PreTrainedTokenizer, max_len: int, spread_max_length: bool = False):
         super(LazySupervisedDataset, self).__init__()
         self.tokenizer = tokenizer
         self.max_len = max_len
+        self.spread_max_length = spread_max_length
         self.raw_data = self._process_raw_data(raw_data)
         self.cached_data_dict = {}
-
-    def _process_raw_data(self, raw_data: Union[List, pd.DataFrame]) -> List:
-        """Convert input data to list format."""
-        if isinstance(raw_data, list):
-            return raw_data
-        
-        elif isinstance(raw_data, pd.DataFrame):
-            return raw_data.to_dict('records')
-        
-        else:
-            raise TypeError(
-                f"Unsupported input type: {type(raw_data)}. "
-                "Please provide a list or pandas DataFrame."
-            )
-
-    def __len__(self):
-        return len(self.raw_data)
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
         if i in self.cached_data_dict:
             return self.cached_data_dict[i]
 
-        ret = preprocess([self.raw_data[i]], self.tokenizer, self.max_len)
+        ret = preprocess([self.raw_data[i]], self.tokenizer, self.max_len, self.spread_max_length)
         ret = {
             'input_ids': ret['input_ids'][0],
             'attention_mask': ret['attention_mask'][0],
