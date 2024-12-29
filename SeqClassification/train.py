@@ -3,6 +3,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Optional
 import torch
+from peft import get_peft_model
 from sklearn.metrics import log_loss, accuracy_score
 from transformers import (
     HfArgumentParser,
