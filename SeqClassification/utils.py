@@ -7,6 +7,7 @@ import torch
 import transformers
 from transformers.trainer_pt_utils import LabelSmoother
 from datasets import DatasetDict, load_dataset, load_from_disk
+from peft import get_peft_model
 from torch.utils.data import Dataset
 from datasets.builder import DatasetGenerationError
 from transformers import (
