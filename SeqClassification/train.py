@@ -18,6 +18,42 @@ from transformers import (
 from utils import make_supervised_data_module, create_and_prepare_model
 from trl import SFTTrainer, SFTConfig
 
+import os
+import sys
+from dataclasses import dataclass, field
+from typing import Optional, Union, Callable
+
+import torch
+import torch.nn as nn
+from sklearn.metrics import log_loss, accuracy_score
+from datasets import Dataset
+
+from transformers import (
+    AutoModelForCausalLM,
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    BaseImageProcessor,
+    DataCollator,
+    DataCollatorForLanguageModeling,
+    FeatureExtractionMixin,
+    PreTrainedModel,
+    PreTrainedTokenizerBase,
+    ProcessorMixin,
+    HfArgumentParser,
+    set_seed,
+    EvalPrediction,
+    Trainer,
+    TrainingArguments,
+    is_wandb_available,
+)
+from transformers.trainer_utils import EvalPrediction
+from transformers.trainer_callback import TrainerCallback
+
+from peft import get_peft_model
+from trl import SFTConfig, SFTTrainer
+from trl.trainer.utils import ConstantLengthDataset
+
+from utils import make_supervised_data_module, create_and_prepare_model
 
 # Define and parse arguments.
 @dataclass
@@ -280,7 +316,7 @@ def main(model_args, data_args, training_args):
     trainer.save_model()
 
 if __name__ == "__main__":
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, SFTClassificationConfig))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         model_args, data_args, training_args = parser.parse_json_file(
             json_file=os.path.abspath(sys.argv[1])
