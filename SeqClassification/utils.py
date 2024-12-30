@@ -166,7 +166,7 @@ def preprocess(
         labels=labels,
     )
 
-class SupervisedDataset(Dataset):
+class SupervisedDataset(HFDataset):
     """Dataset for supervised fine-tuning."""
 
     def __init__(self, raw_data: Union[List, pd.DataFrame], tokenizer: transformers.PreTrainedTokenizer, max_len: int, spread_max_length: bool = False):
@@ -207,7 +207,7 @@ class SupervisedDataset(Dataset):
             attention_mask=self.attention_mask[i],
         )
 
-class LazySupervisedDataset(Dataset):
+class LazySupervisedDataset(HFDataset):
     """Dataset for supervised fine-tuning with lazy loading."""
 
     def __init__(self, raw_data: Union[List, pd.DataFrame], tokenizer: transformers.PreTrainedTokenizer, max_len: int, spread_max_length: bool = False):
