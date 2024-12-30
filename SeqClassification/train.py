@@ -294,7 +294,7 @@ def main(model_args, data_args, training_args):
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         processing_class=tokenizer,
-        compute_metrics=compute_metrics,
+        # compute_metrics=compute_metrics,
         peft_config=peft_config,
         num_labels=model_args.num_labels,  # Pass num_labels directly
     )
