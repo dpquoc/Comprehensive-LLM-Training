@@ -262,9 +262,9 @@ class SFTClassificationTrainer(SFTTrainer):
 
     #     return tokenized_dataset
     
-    def _prepare_dataset(self, dataset):
-        # Dataset is already preprocessed, just return it
-        return dataset
+    # def _prepare_dataset(self, dataset):
+    #     # Dataset is already preprocessed, just return it
+    #     return dataset
     
 
 def compute_metrics(eval_preds: EvalPrediction) -> dict:
