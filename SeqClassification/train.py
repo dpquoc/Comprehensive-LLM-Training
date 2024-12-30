@@ -166,10 +166,8 @@ class DataTrainingArguments:
 
 @dataclass
 class SFTClassificationConfig(SFTConfig):
-    num_labels: int = 2
+    # Remove num_labels from config since it's already in ModelArguments
     problem_type: Optional[str] = None
-
-
 
 class SFTClassificationTrainer(SFTTrainer):
     def __init__(
@@ -184,11 +182,12 @@ class SFTClassificationTrainer(SFTTrainer):
         optimizers: tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
         preprocess_logits_for_metrics: Optional[Callable] = None,
         peft_config = None,
+        num_labels: int = 2,  # Add num_labels as a direct parameter
     ):
         if isinstance(model, str):
             model = AutoModelForSequenceClassification.from_pretrained(
                 model,
-                num_labels=args.num_labels if args is not None else 2,
+                num_labels=num_labels,
                 problem_type=args.problem_type if args is not None else None
             )
             
@@ -273,7 +272,6 @@ def compute_metrics(eval_preds: EvalPrediction) -> dict:
     return {"acc": acc, "log_loss": loss}
 
 
-
 def main(model_args, data_args, training_args):
     # Set seed for reproducibility
     set_seed(training_args.seed)
@@ -282,10 +280,7 @@ def main(model_args, data_args, training_args):
     model, peft_config, tokenizer = create_and_prepare_model(model_args, data_args)
     
     # Convert training args to SFTClassificationConfig
-    sft_args = SFTClassificationConfig(
-        **training_args.to_dict(),
-        num_labels=model_args.num_labels
-    )
+    sft_args = SFTClassificationConfig(**training_args.to_dict())
     
     # Dataset preparation
     data_module = make_supervised_data_module(tokenizer, data_args, max_len=data_args.my_max_len)
@@ -301,6 +296,7 @@ def main(model_args, data_args, training_args):
         processing_class=tokenizer,
         compute_metrics=compute_metrics,
         peft_config=peft_config,
+        num_labels=model_args.num_labels,  # Pass num_labels directly
     )
     
     # Rest of your training code remains the same
