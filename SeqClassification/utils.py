@@ -8,7 +8,7 @@ import transformers
 from transformers.trainer_pt_utils import LabelSmoother
 from datasets import DatasetDict, load_dataset, load_from_disk
 from peft import get_peft_model
-from datasets import Dataset as HFDataset
+from torch.utils.data import Dataset
 
 from datasets.builder import DatasetGenerationError
 from transformers import (
@@ -166,7 +166,7 @@ def preprocess(
         labels=labels,
     )
 
-class SupervisedDataset(HFDataset):
+class SupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
 
     def __init__(self, raw_data: Union[List, pd.DataFrame], tokenizer: transformers.PreTrainedTokenizer, max_len: int, spread_max_length: bool = False):
@@ -207,7 +207,7 @@ class SupervisedDataset(HFDataset):
             attention_mask=self.attention_mask[i],
         )
 
-class LazySupervisedDataset(HFDataset):
+class LazySupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning with lazy loading."""
 
     def __init__(self, raw_data: Union[List, pd.DataFrame], tokenizer: transformers.PreTrainedTokenizer, max_len: int, spread_max_length: bool = False):
