@@ -1,0 +1,33 @@
+compute_environment: LOCAL_MACHINE
+debug: false
+deepspeed_config:
+  deepspeed_multinode_launcher: standard
+  gradient_accumulation_steps: 4  # Match this with your training argument
+  gradient_clipping: 1.0  # Add this to match your max_grad_norm
+  zero_optimization:  # Add detailed zero optimization settings
+    stage: 3
+    overlap_comm: true
+    contiguous_gradients: true
+    reduce_bucket_size: 5e7
+    stage3_prefetch_bucket_size: 5e7
+    stage3_param_persistence_threshold: 1e5
+    stage3_max_live_parameters: 1e9
+    stage3_max_reuse_distance: 1e9
+    stage3_gather_16bit_weights_on_model_save: true
+  offload_optimizer_device: none
+  offload_param_device: none
+  fp16:
+    enabled: false
+  bf16:
+    enabled: true  # Enable this since you're using bf16
+  zero_force_ds_cpu_optimizer: false
+distributed_type: DEEPSPEED
+downcast_bf16: 'no'
+machine_rank: 0
+main_training_function: main
+mixed_precision: bf16
+num_machines: 1
+num_processes: 4  # Set this to number of GPUs you want to use
+rdzv_backend: static
+same_network: true
+use_cpu: false
