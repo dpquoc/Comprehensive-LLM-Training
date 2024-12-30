@@ -16,6 +16,8 @@ from transformers import (
     DataCollatorWithPadding
 )
 from utils import make_supervised_data_module, create_and_prepare_model
+from trl import SFTTrainer, SFTConfig
+
 
 # Define and parse arguments.
 @dataclass
@@ -86,9 +88,6 @@ class ModelArguments:
     )
     
 
-    
-
-
 @dataclass
 class DataTrainingArguments:
     # dataset_name: Optional[str] = field(
@@ -129,7 +128,105 @@ class DataTrainingArguments:
     )
     lazy_preprocess: bool = False
 
+@dataclass
+class SFTClassificationConfig(SFTConfig):
+    num_labels: int = 2
+    problem_type: Optional[str] = None
 
+
+
+class SFTClassificationTrainer(SFTTrainer):
+    def __init__(
+        self,
+        model: Optional[Union[PreTrainedModel, nn.Module, str]] = None,
+        args: Optional[SFTClassificationConfig] = None,
+        data_collator: Optional[DataCollator] = None,
+        train_dataset: Optional[Dataset] = None,
+        eval_dataset: Optional[Dataset] = None,
+        processing_class: Optional[PreTrainedTokenizerBase] = None,
+        callbacks: Optional[list[TrainerCallback]] = None,
+        optimizers: tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
+        preprocess_logits_for_metrics: Optional[Callable] = None,
+        peft_config = None,
+    ):
+        if isinstance(model, str):
+            model = AutoModelForSequenceClassification.from_pretrained(
+                model,
+                num_labels=args.num_labels if args is not None else 2,
+                problem_type=args.problem_type if args is not None else None
+            )
+            
+        if args is None:
+            args = SFTClassificationConfig(output_dir="tmp_trainer")
+            
+        # Initialize the parent SFTTrainer
+        super().__init__(
+            model=model,
+            args=args,
+            data_collator=data_collator,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            processing_class=processing_class,
+            callbacks=callbacks,
+            optimizers=optimizers,
+            preprocess_logits_for_metrics=preprocess_logits_for_metrics,
+            peft_config=peft_config,
+        )
+        
+    def _prepare_dataset(
+        self,
+        dataset,
+        processing_class,
+        packing,
+        dataset_text_field,
+        max_seq_length,
+        formatting_func=None,
+        num_of_sequences=1,
+        chars_per_token=3.3,
+        remove_unused_columns=True,
+        append_concat_token=False,
+        add_special_tokens=True,
+        skip_prepare_dataset=False,
+    ):
+        # Override to handle classification datasets
+        if dataset is None:
+            raise ValueError("The dataset should not be None")
+
+        if skip_prepare_dataset:
+            return dataset
+            
+        # Check if dataset is already processed
+        if hasattr(dataset, "column_names") and "input_ids" in dataset.column_names:
+            return dataset
+
+        def tokenize(element):
+            outputs = processing_class(
+                element[dataset_text_field] if dataset_text_field in element else element["text"],
+                add_special_tokens=add_special_tokens,
+                truncation=True,
+                max_length=max_seq_length,
+                padding=False,
+                return_tensors=None,
+            )
+            
+            if "label" in element:
+                outputs["labels"] = element["label"]
+            elif "labels" in element:
+                outputs["labels"] = element["labels"]
+                
+            return outputs
+
+        # Process the dataset
+        tokenized_dataset = dataset.map(
+            tokenize,
+            batched=True,
+            remove_columns=dataset.column_names if remove_unused_columns else None,
+            num_proc=self.dataset_num_proc if not isinstance(dataset, Dataset) else None,
+            batch_size=self.dataset_batch_size,
+        )
+
+        return tokenized_dataset
+    
 
 def compute_metrics(eval_preds: EvalPrediction) -> dict:
     preds = eval_preds.predictions
@@ -140,6 +237,7 @@ def compute_metrics(eval_preds: EvalPrediction) -> dict:
     return {"acc": acc, "log_loss": loss}
 
 
+
 def main(model_args, data_args, training_args):
     # Set seed for reproducibility
     set_seed(training_args.seed)
@@ -147,43 +245,36 @@ def main(model_args, data_args, training_args):
     # Model and tokenizer
     model, peft_config, tokenizer = create_and_prepare_model(model_args, data_args)
     
-    if peft_config is not None:
-        model = get_peft_model(model, peft_config)
-        model.print_trainable_parameters()
-
-    # Gradient checkpointing setup
-    model.config.use_cache = not training_args.gradient_checkpointing
-    if training_args.gradient_checkpointing:
-        training_args.gradient_checkpointing_kwargs = {"use_reentrant": model_args.use_reentrant}
+    # Convert training args to SFTClassificationConfig
+    sft_args = SFTClassificationConfig(
+        **training_args.to_dict(),
+        num_labels=model_args.num_labels
+    )
     
     # Dataset preparation
     data_module = make_supervised_data_module(tokenizer, data_args, max_len=data_args.my_max_len)
     train_dataset = data_module["train_dataset"]
     eval_dataset = data_module["eval_dataset"]
     
-    # Initialize trainer
-    trainer = Trainer(
+    # Initialize SFTClassificationTrainer
+    trainer = SFTClassificationTrainer(
         model=model,
-        args=training_args,
+        args=sft_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         compute_metrics=compute_metrics,
-        # peft_config=peft_config,
-
-        # data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
+        peft_config=peft_config,
     )
     
-    # Print model information
+    # Rest of your training code remains the same
     trainer.accelerator.print(f"{trainer.model}")
     
-    # Training
     checkpoint = None
     if training_args.resume_from_checkpoint is not None:
         checkpoint = training_args.resume_from_checkpoint
     trainer.train(resume_from_checkpoint=checkpoint)
     
-    # Save the final model
     if trainer.is_fsdp_enabled:
         trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
     trainer.save_model()
