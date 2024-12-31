@@ -189,63 +189,6 @@ class SFTClassificationTrainer(SFTTrainer):
             peft_config=peft_config,
         )
         
-    # def _prepare_dataset(
-    #     self,
-    #     dataset,
-    #     processing_class,
-    #     packing,
-    #     dataset_text_field,
-    #     max_seq_length,
-    #     formatting_func=None,
-    #     num_of_sequences=1,
-    #     chars_per_token=3.3,
-    #     remove_unused_columns=True,
-    #     append_concat_token=False,
-    #     add_special_tokens=True,
-    #     skip_prepare_dataset=False,
-    # ):
-    #     # Override to handle classification datasets
-    #     if dataset is None:
-    #         raise ValueError("The dataset should not be None")
-
-    #     if skip_prepare_dataset:
-    #         return dataset
-            
-    #     # Check if dataset is already processed
-    #     if hasattr(dataset, "column_names") and "input_ids" in dataset.column_names:
-    #         return dataset
-
-    #     def tokenize(element):
-    #         outputs = processing_class(
-    #             element[dataset_text_field] if dataset_text_field in element else element["text"],
-    #             add_special_tokens=add_special_tokens,
-    #             truncation=True,
-    #             max_length=max_seq_length,
-    #             padding=False,
-    #             return_tensors=None,
-    #         )
-            
-    #         if "label" in element:
-    #             outputs["labels"] = element["label"]
-    #         elif "labels" in element:
-    #             outputs["labels"] = element["labels"]
-                
-    #         return outputs
-
-    #     # Process the dataset
-    #     tokenized_dataset = dataset.map(
-    #         tokenize,
-    #         batched=True,
-    #         remove_columns=dataset.column_names if remove_unused_columns else None,
-    #         num_proc=self.dataset_num_proc if not isinstance(dataset, Dataset) else None,
-    #         batch_size=self.dataset_batch_size,
-    #     )
-
-    #     return tokenized_dataset
-    
-    # def _prepare_dataset(self, dataset):
-    #     # Dataset is already preprocessed, just return it
-    #     return dataset
     
 
 def compute_metrics(eval_preds: EvalPrediction) -> dict:

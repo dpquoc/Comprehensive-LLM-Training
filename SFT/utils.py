@@ -291,7 +291,7 @@ def create_and_prepare_model(args, data_args):
             model.resize_token_embeddings(len(tokenizer), pad_to_multiple_of=8)
     else:
         tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, trust_remote_code=True, model_max_length=args.model_max_length, padding_side="right")
-        tokenizer.pad_token = tokenizer.eos_token
-
-
+        # tokenizer.pad_token = tokenizer.eos_token # This line doesnt matter , since Qwen already has its own pad token
+        model.config.pad_token_id = tokenizer.pad_token_id
+    
     return model, peft_config, tokenizer
