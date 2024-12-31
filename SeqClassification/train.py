@@ -9,20 +9,16 @@ from sklearn.metrics import log_loss, accuracy_score
 from datasets import Dataset
 
 from transformers import (
-    AutoModelForCausalLM,
     AutoModelForSequenceClassification,
     AutoTokenizer,
-    BaseImageProcessor,
     DataCollator,
     DataCollatorForLanguageModeling,
     DataCollatorWithPadding,
-    FeatureExtractionMixin,
     HfArgumentParser,
     PreTrainedModel,
     PreTrainedTokenizerBase,
     ProcessorMixin,
     Trainer,
-    TrainingArguments,
     EvalPrediction,
     set_seed,
     is_wandb_available,
@@ -235,7 +231,7 @@ def main(model_args, data_args, training_args):
         peft_config=peft_config,
         num_labels=model_args.num_labels,
     )
-    
+
     # Rest of your training code remains the same
     trainer.accelerator.print(f"{trainer.model}")
     
