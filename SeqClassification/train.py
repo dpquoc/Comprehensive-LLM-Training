@@ -199,6 +199,15 @@ def compute_metrics(eval_preds: EvalPrediction) -> dict:
     acc = accuracy_score(y_true=labels, y_pred=preds.argmax(-1))
     return {"acc": acc, "log_loss": loss}
 
+def collate_fn(batch):
+    input_ids = torch.stack([x['input_ids'] for x in batch])
+    attention_mask = torch.stack([x['attention_mask'] for x in batch])
+    labels = torch.stack([x['labels'] for x in batch])
+    return {
+        'input_ids': input_ids,
+        'attention_mask': attention_mask,
+        'labels': labels
+    }
 
 def main(model_args, data_args, training_args):
     # Set seed for reproducibility
@@ -221,10 +230,10 @@ def main(model_args, data_args, training_args):
         args=sft_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
+        data_collator=collate_fn,  # Add this line
         processing_class=tokenizer,
-        # compute_metrics=compute_metrics,
         peft_config=peft_config,
-        num_labels=model_args.num_labels,  # Pass num_labels directly
+        num_labels=model_args.num_labels,
     )
     
     # Rest of your training code remains the same

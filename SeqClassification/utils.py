@@ -143,22 +143,7 @@ def preprocess(
     input_ids = torch.tensor(input_ids, dtype=torch.int)
     attention_mask = input_ids.ne(tokenizer.pad_token_id)
 
-    # Handle the winner labels
-    labels = []
-    winners = sources.get("winner", [])
-    
-    for winner in winners:
-        if winner == 'model_a':
-            label = 0
-        elif winner == 'model_b':
-            label = 1
-        else:
-            continue  # Skip invalid labels
-            
-        labels.append(label)
-    
-    # Convert labels to tensor
-    labels = torch.tensor(labels, dtype=torch.long)
+    labels = torch.tensor([1 if w == 'model_b' else 0 for w in sources["winner"]], dtype=torch.long)
     
     return dict(
         input_ids=input_ids,
