@@ -104,10 +104,6 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "If True, tokenizers adds special tokens to each sample being packed."},
     )
-    splits: Optional[str] = field(
-        default="train,test", # "none" for dataset not in splitted format , and the dataset will be the train dataset
-        metadata={"help": "Comma separate list of the splits to use from the dataset."},
-    )
     data_path: str = field(
         default=None, metadata={"help": "Path to the training data."} 
     )
