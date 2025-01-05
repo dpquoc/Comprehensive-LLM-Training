@@ -117,7 +117,7 @@ def preprocess(
         
         input_ids = []
         for p_tok, ra_tok, rb_tok in zip(prompt_tokens, response_a_tokens, response_b_tokens):
-            sequence = [im_start] + user_tokens + p_tok + ra_tok + rb_tok + [im_end] + [im_start] + assistant_tokens
+            sequence = [im_start] + user_tokens + p_tok + ra_tok + rb_tok + [im_end] + [nl_tokens] + [im_start] + assistant_tokens
             sequence = sequence[:max_len]
             sequence += [tokenizer.pad_token_id] * (max_len - len(sequence))
             input_ids.append(sequence)
@@ -127,7 +127,7 @@ def preprocess(
         tokenized = tokenizer(
             combined_texts,
             add_special_tokens=False,
-            max_length=max_len - len([im_start] + user_tokens + [im_end] + [im_start] + assistant_tokens),
+            max_length=max_len - len([im_start] + user_tokens + [im_end] + [nl_tokens] + [im_start] + assistant_tokens),
             truncation=True,
             padding=False,
         ).input_ids
