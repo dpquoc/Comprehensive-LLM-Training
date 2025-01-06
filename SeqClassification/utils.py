@@ -98,8 +98,7 @@ def simple_preprocess(
 # <|im_end|>
 # <|im_start|>assistant"""
 
-    template = """<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>You are a helpful assistant. Your task is to read the following prompt carefully. Compare the two responses provided and determine which response better.<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|USER_TOKEN|>
-Prompt: {prompt}
+    template = """<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>You are a helpful assistant. Your task is to read the following prompt carefully. Compare the two responses provided and determine which response better.<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|USER_TOKEN|>Prompt: {prompt}
 
 Response A: {response_a}
 
