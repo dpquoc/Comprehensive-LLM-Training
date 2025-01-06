@@ -85,16 +85,25 @@ def simple_preprocess(
         sources = converted_sources
     
     # Define template
-    template = """<|im_start|>user
-Read the following prompt carefully. Compare the two responses provided and determine which response better addresses the user's needs.
 
+    # Qwen template
+#     template = """<|im_start|>user
+# Read the following prompt carefully. Compare the two responses provided and determine which response better addresses the user's needs.
+
+# Prompt: {prompt}
+
+# Response A: {response_a}
+
+# Response B: {response_b}
+# <|im_end|>
+# <|im_start|>assistant"""
+
+    template = """<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>You are a helpful assistant. Your task is to read the following prompt carefully. Compare the two responses provided and determine which response better.<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|USER_TOKEN|>
 Prompt: {prompt}
 
 Response A: {response_a}
 
-Response B: {response_b}
-<|im_end|>
-<|im_start|>assistant"""
+Response B: {response_b}<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|><|START_RESPONSE|>"""
 
     # Create full texts by filling in template
     full_texts = [
@@ -236,7 +245,7 @@ class SupervisedDataset(Dataset):
         sources = self._process_raw_data(raw_data)
         
         # Let preprocess handle the full dictionary including conversations and winner
-        data_dict = preprocess(sources, tokenizer, max_len, spread_max_length)
+        data_dict = simple_preprocess(sources, tokenizer, max_len, spread_max_length)
 
         self.input_ids = data_dict["input_ids"]
         self.labels = data_dict["labels"]
@@ -299,7 +308,7 @@ class LazySupervisedDataset(Dataset):
         if i in self.cached_data_dict:
             return self.cached_data_dict[i]
 
-        ret = preprocess([self.raw_data[i]], self.tokenizer, self.max_len, self.spread_max_length)
+        ret = simple_preprocess([self.raw_data[i]], self.tokenizer, self.max_len, self.spread_max_length)
         ret = {
             'input_ids': ret['input_ids'][0],
             'attention_mask': ret['attention_mask'][0],
