@@ -53,6 +53,81 @@ class ChatmlSpecialTokens(str, Enum):
     def list(cls):
         return [c.value for c in cls]
 
+def simple_preprocess(
+    sources: Dict,
+    tokenizer: transformers.PreTrainedTokenizer,
+    max_len: int = 2048,
+) -> Dict:
+    """
+    A simplified preprocessing function that uses a template and tokenizes the full text.
+    
+    Args:
+        sources: Dictionary containing lists of 'prompt', 'response_a', 'response_b', and 'winner'
+        tokenizer: The tokenizer to use
+        max_len: Maximum sequence length
+        
+    Returns:
+        Dictionary containing input_ids, attention_mask, and labels tensors
+    """
+    # Convert list of dicts to dict of lists if necessary
+    if isinstance(sources, list):
+        converted_sources = {
+            "prompt": [],
+            "response_a": [],
+            "response_b": [],
+            "winner": []
+        }
+        for item in sources:
+            converted_sources["prompt"].append(item["prompt"])
+            converted_sources["response_a"].append(item["response_a"])
+            converted_sources["response_b"].append(item["response_b"])
+            converted_sources["winner"].append(item["winner"])
+        sources = converted_sources
+    
+    # Define template
+    template = """<|im_start|>user
+Read the following prompt carefully. Compare the two responses provided and determine which response better addresses the user's needs.
+
+Prompt: {prompt}
+
+Response A: {response_a}
+
+Response B: {response_b}
+<|im_end|>
+<|im_start|>assistant"""
+
+    # Create full texts by filling in template
+    full_texts = [
+        template.format(
+            prompt=prompt,
+            response_a=response_a,
+            response_b=response_b
+        )
+        for prompt, response_a, response_b in zip(
+            sources["prompt"],
+            sources["response_a"],
+            sources["response_b"]
+        )
+    ]
+    
+    # Tokenize
+    tokenized = tokenizer(
+        full_texts,
+        max_length=max_len,
+        padding="max_length",
+        truncation=True,
+        return_tensors="pt",
+    )
+    
+    # Create labels tensor
+    labels = torch.tensor([1 if w == 'model_b' else 0 for w in sources["winner"]], dtype=torch.long)
+    
+    return {
+        "input_ids": tokenized.input_ids,
+        "attention_mask": tokenized.attention_mask,
+        "labels": labels,
+    }
+
 
 def preprocess(
     sources: Dict,

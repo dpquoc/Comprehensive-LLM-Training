@@ -54,6 +54,67 @@ class ChatmlSpecialTokens(str, Enum):
     def list(cls):
         return [c.value for c in cls]
 
+def simple_chat_preprocess(
+    conversations: List[Dict],
+    tokenizer: transformers.PreTrainedTokenizer,
+    max_len: int = 2048,
+    system_message: str = "You are a helpful assistant."
+) -> Dict:
+    """
+    Simplified preprocessing for chat conversations.
+    
+    Args:
+        conversations: List of conversation turns [{"role": "user/assistant", "content": "message"}]
+        tokenizer: The tokenizer to use
+        max_len: Maximum sequence length
+        system_message: System message to prepend
+    """
+    template = "<|im_start|>{role}\n{content}<|im_end|>\n"
+    system_prompt = template.format(role="system", content=system_message)
+    
+    full_texts = []
+    targets = []
+    
+    for conv in conversations:
+        # Build conversation text
+        text = system_prompt
+        target = ["<|im_start|>"] + [IGNORE_TOKEN_ID] * (len(tokenizer(system_prompt).input_ids) - 3) + ["<|im_end|>\n"]
+        
+        for turn in conv:
+            turn_text = template.format(role=turn["role"], content=turn["content"])
+            text += turn_text
+            
+            # For user messages, mask out the entire turn
+            if turn["role"] == "user":
+                target += ["<|im_start|>"] + [IGNORE_TOKEN_ID] * (len(tokenizer(turn_text).input_ids) - 3) + ["<|im_end|>\n"]
+            # For assistant messages, only mask the role tokens
+            else:
+                role_tokens = len(tokenizer("<|im_start|>assistant\n").input_ids)
+                content_tokens = tokenizer(turn["content"] + "<|im_end|>\n").input_ids
+                target += ["<|im_start|>"] + [IGNORE_TOKEN_ID] * (role_tokens - 1) + content_tokens
+                
+        full_texts.append(text)
+        targets.append(target)
+
+    # Tokenize and pad
+    tokenized = tokenizer(
+        full_texts,
+        max_length=max_len,
+        padding="max_length",
+        truncation=True,
+        return_tensors="pt"
+    )
+    
+    # Convert targets to tensor and pad
+    padded_targets = [t + [IGNORE_TOKEN_ID] * (max_len - len(t)) for t in targets]
+    target_tensor = torch.tensor(padded_targets)[:, :max_len]
+    
+    return {
+        "input_ids": tokenized.input_ids,
+        "attention_mask": tokenized.attention_mask,
+        "labels": target_tensor
+    }
+
 
 def preprocess(
     sources,
