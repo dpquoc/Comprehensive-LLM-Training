@@ -57,6 +57,7 @@ def simple_preprocess(
     sources: Dict,
     tokenizer: transformers.PreTrainedTokenizer,
     max_len: int = 2048,
+    spread_max_length: bool = False,
 ) -> Dict:
     """
     A simplified preprocessing function that uses a template and tokenizes the full text.
@@ -65,6 +66,7 @@ def simple_preprocess(
         sources: Dictionary containing lists of 'prompt', 'response_a', 'response_b', and 'winner'
         tokenizer: The tokenizer to use
         max_len: Maximum sequence length
+        spread_max_length: Whether to equally distribute max_length among components
         
     Returns:
         Dictionary containing input_ids, attention_mask, and labels tensors
@@ -84,43 +86,61 @@ def simple_preprocess(
             converted_sources["winner"].append(item["winner"])
         sources = converted_sources
     
-    # Define template
-
-    # Qwen template
-#     template = """<|im_start|>user
-# Read the following prompt carefully. Compare the two responses provided and determine which response better addresses the user's needs.
-
-# Prompt: {prompt}
-
-# Response A: {response_a}
-
-# Response B: {response_b}
-# <|im_end|>
-# <|im_start|>assistant"""
-
     template = """<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>You are a helpful assistant. Your task is to read the following prompt carefully. Compare the two responses provided and determine which response better.<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|USER_TOKEN|>Prompt: {prompt}
 
 Response A: {response_a}
 
 Response B: {response_b}<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|><|START_RESPONSE|>"""
 
-    # Create full texts by filling in template
-    full_texts = [
-        template.format(
-            prompt=prompt,
-            response_a=response_a,
-            response_b=response_b
-        )
+    if spread_max_length:
+        # Calculate the special tokens length in the template
+        template_special_tokens = tokenizer(
+            template.format(prompt="", response_a="", response_b=""),
+            return_tensors="pt"
+        ).input_ids.shape[1]
+        
+        # Distribute remaining length among prompt, response_a, and response_b
+        component_max_len = (max_len - template_special_tokens) // 3
+        
+        # Process each component separately
+        processed_texts = []
         for prompt, response_a, response_b in zip(
             sources["prompt"],
             sources["response_a"],
             sources["response_b"]
-        )
-    ]
+        ):
+            # Tokenize and truncate each component
+            prompt_tokens = tokenizer(prompt, max_length=component_max_len, 
+                                   truncation=True, add_special_tokens=False).input_ids
+            response_a_tokens = tokenizer(response_a, max_length=component_max_len, 
+                                       truncation=True, add_special_tokens=False).input_ids
+            response_b_tokens = tokenizer(response_b, max_length=component_max_len, 
+                                       truncation=True, add_special_tokens=False).input_ids
+            
+            # Decode back to text
+            processed_texts.append(template.format(
+                prompt=tokenizer.decode(prompt_tokens),
+                response_a=tokenizer.decode(response_a_tokens),
+                response_b=tokenizer.decode(response_b_tokens)
+            ))
+    else:
+        # Create full texts by filling in template directly
+        processed_texts = [
+            template.format(
+                prompt=prompt,
+                response_a=response_a,
+                response_b=response_b
+            )
+            for prompt, response_a, response_b in zip(
+                sources["prompt"],
+                sources["response_a"],
+                sources["response_b"]
+            )
+        ]
     
     # Tokenize
     tokenized = tokenizer(
-        full_texts,
+        processed_texts,
         max_length=max_len,
         padding="max_length",
         truncation=True,
