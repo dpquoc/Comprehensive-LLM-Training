@@ -413,7 +413,7 @@ def create_and_prepare_model(args, data_args):
         args.model_name_or_path,
         num_labels=args.num_labels,
         quantization_config=bnb_config,
-        trust_remote_code=True,
+        trust_remote_code=False,
         attn_implementation="flash_attention_2" if args.use_flash_attn else "eager",
         torch_dtype=torch_dtype,
         # device_map="auto"  # Add this, not work when using DeepSpeed 3
