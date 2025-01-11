@@ -42,7 +42,7 @@ class ModelArguments:
     model_name_or_path: str = field(
         metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
     )
-    scorer_layer_path: str = field(
+    score_layer_path: str = field(
         default=None,
         metadata={"help": "Path to scorer weights layer for seq classification head of LLM"}
     )

@@ -457,7 +457,7 @@ def create_and_prepare_model(args, data_args):
         torch_dtype=torch_dtype,
         # device_map="auto"  # Add this, not work when using DeepSpeed 3
     )
-    if args.scorer_layer_path:
+    if args.score_layer_path:
         model = load_score_layer_weights(model, args.scorer_layer_path)
 
     peft_config = None
