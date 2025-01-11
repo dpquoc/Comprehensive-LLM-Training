@@ -28,6 +28,44 @@ DEFAULT_ZEPHYR_CHAT_TEMPLATE = "{% for message in messages %}\n{% if message['ro
 IGNORE_TOKEN_ID = LabelSmoother.ignore_index
 
 
+def save_score_layer_weights(model, save_path):
+    """
+    Save only the score layer weights from a sequence classification model.
+    
+    Args:
+        model: The sequence classification model containing the score layer
+        save_path (str): Path where to save the weights
+    """
+    # Extract score layer weights
+    score_weights = {
+        'weight': model.score.weight.detach().cpu(),
+    }
+    if hasattr(model.score, 'bias') and model.score.bias is not None:
+        score_weights['bias'] = model.score.bias.detach().cpu()
+    
+    # Save weights
+    torch.save(score_weights, save_path)
+    print(f"Score layer weights saved to {save_path}")
+
+def load_score_layer_weights(model, weights_path):
+    """
+    Load and replace score layer weights in a model.
+    
+    Args:
+        model: The sequence classification model to update
+        weights_path (str): Path to the saved weights
+    """
+    # Load the saved weights
+    score_weights = torch.load(weights_path)
+    
+    # Replace the weights in the model
+    model.score.weight = torch.nn.Parameter(score_weights['weight'].to(model.score.weight.device))
+    if 'bias' in score_weights and hasattr(model.score, 'bias'):
+        model.score.bias = torch.nn.Parameter(score_weights['bias'].to(model.score.bias.device))
+    
+    print(f"Score layer weights loaded from {weights_path}")
+    return model
+
 class ZephyrSpecialTokens(str, Enum):
     user = "<|user|>"
     assistant = "<|assistant|>"
@@ -418,6 +456,8 @@ def create_and_prepare_model(args, data_args):
         torch_dtype=torch_dtype,
         # device_map="auto"  # Add this, not work when using DeepSpeed 3
     )
+    if args.scorer_layer_path:
+        model = load_score_layer_weights(model, args.scorer_layer_path)
 
     peft_config = None
     chat_template = None
