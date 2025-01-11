@@ -16,6 +16,7 @@ from transformers import (
     AutoTokenizer,
     BitsAndBytesConfig,
     AutoModelForSequenceClassification,
+    Cohere2ForSequenceClassification
 )
 import pandas as pd
 from typing import Dict, Optional, List, Union
@@ -447,7 +448,7 @@ def create_and_prepare_model(args, data_args):
     torch_dtype = (
         quant_storage_dtype if quant_storage_dtype and quant_storage_dtype.is_floating_point else torch.float32
     )
-    model = AutoModelForSequenceClassification.from_pretrained(
+    model = Cohere2ForSequenceClassification.from_pretrained(
         args.model_name_or_path,
         num_labels=args.num_labels,
         quantization_config=bnb_config,
