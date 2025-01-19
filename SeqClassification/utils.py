@@ -450,7 +450,17 @@ def create_and_prepare_model(args, data_args):
     torch_dtype = (
         quant_storage_dtype if quant_storage_dtype and quant_storage_dtype.is_floating_point else torch.float32
     )
-    model = Cohere2ForSequenceClassification.from_pretrained(
+    # model = Cohere2ForSequenceClassification.from_pretrained(
+    #     args.model_name_or_path,
+    #     num_labels=args.num_labels,
+    #     quantization_config=bnb_config,
+    #     trust_remote_code=False,
+    #     attn_implementation="flash_attention_2" if args.use_flash_attn else "eager",
+    #     torch_dtype=torch_dtype,
+    #     # device_map="auto"  # Add this, not work when using DeepSpeed 3
+    # )
+
+    model = AutoModelForSequenceClassification.from_pretrained(
         args.model_name_or_path,
         num_labels=args.num_labels,
         quantization_config=bnb_config,
@@ -459,6 +469,7 @@ def create_and_prepare_model(args, data_args):
         torch_dtype=torch_dtype,
         # device_map="auto"  # Add this, not work when using DeepSpeed 3
     )
+    
     if args.score_layer_path:
         model = load_score_layer_weights(model, args.score_layer_path)
 
