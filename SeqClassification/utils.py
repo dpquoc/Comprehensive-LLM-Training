@@ -303,7 +303,8 @@ class SupervisedDataset(Dataset):
         sources = self._process_raw_data(raw_data)
         
         # Let preprocess handle the full dictionary including conversations and winner
-        data_dict = simple_preprocess(sources, tokenizer, max_len, spread_max_length)
+        # data_dict = simple_preprocess(sources, tokenizer, max_len, spread_max_length)
+        data_dict = preprocess(sources, tokenizer, max_len, spread_max_length)
 
         self.input_ids = data_dict["input_ids"]
         self.labels = data_dict["labels"]
@@ -366,7 +367,8 @@ class LazySupervisedDataset(Dataset):
         if i in self.cached_data_dict:
             return self.cached_data_dict[i]
 
-        ret = simple_preprocess([self.raw_data[i]], self.tokenizer, self.max_len, self.spread_max_length)
+        # ret = simple_preprocess([self.raw_data[i]], self.tokenizer, self.max_len, self.spread_max_length)
+        ret = preprocess([self.raw_data[i]], self.tokenizer, self.max_len, self.spread_max_length)
         ret = {
             'input_ids': ret['input_ids'][0],
             'attention_mask': ret['attention_mask'][0],
