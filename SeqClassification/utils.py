@@ -127,9 +127,12 @@ def simple_preprocess(
     
     template = """<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>You are a helpful assistant. Your task is to read the following prompt carefully. Compare the two responses provided and determine which response better.<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|USER_TOKEN|>Prompt: {prompt}
 
-Response A: {response_a}
+Response A:
+{response_a}
 
-Response B: {response_b}<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|><|START_RESPONSE|>"""
+Response B:
+{response_b}
+<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|><|START_RESPONSE|>"""
 
     if spread_max_length:
         # Calculate the special tokens length in the template
