@@ -420,22 +420,38 @@ def make_supervised_data_module(
         LazySupervisedDataset if data_args.lazy_preprocess else SupervisedDataset
     )
 
-    # Load training data
-    train_data = load_data(data_args.data_path)
-    train_dataset = dataset_cls(
-        train_data, tokenizer=tokenizer, max_len=data_args.my_max_len, spread_max_length=data_args.spread_max_length
-    )
+    # Load training data if in training mode
+    train_dataset = None
+    if data_args.data_path and not data_args.do_predict:
+        train_data = load_data(data_args.data_path)
+        train_dataset = dataset_cls(
+            train_data, tokenizer=tokenizer, max_len=data_args.my_max_len, 
+            spread_max_length=data_args.spread_max_length
+        )
 
     # Load evaluation data if provided
-    if data_args.eval_data_path:
+    eval_dataset = None
+    if data_args.eval_data_path and not data_args.do_predict:
         eval_data = load_data(data_args.eval_data_path)
         eval_dataset = dataset_cls(
-            eval_data, tokenizer=tokenizer, max_len=data_args.my_max_len, spread_max_length=data_args.spread_max_length
+            eval_data, tokenizer=tokenizer, max_len=data_args.my_max_len,
+            spread_max_length=data_args.spread_max_length
         )
-    else:
-        eval_dataset = None
 
-    return dict(train_dataset=train_dataset, eval_dataset=eval_dataset)
+    # Load prediction data if in predict mode
+    test_dataset = None
+    if data_args.do_predict and data_args.test_data_path:
+        test_data = load_data(data_args.test_data_path)
+        test_dataset = dataset_cls(
+            test_data, tokenizer=tokenizer, max_len=data_args.my_max_len,
+            spread_max_length=data_args.spread_max_length, is_prediction=True
+        )
+
+    return dict(
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        test_dataset=test_dataset
+    )
 
 def create_and_prepare_model(args, data_args):
     bnb_config = None

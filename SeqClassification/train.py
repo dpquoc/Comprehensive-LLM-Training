@@ -1,5 +1,6 @@
 import os
 import sys
+import pandas as pd
 from dataclasses import dataclass, field
 from typing import Optional, Union, Callable
 
@@ -143,7 +144,19 @@ class DataTrainingArguments:
     eval_data_path: str = field(
         default=None, metadata={"help": "Path to the evaluation data."}
     )
-    lazy_preprocess: bool = False
+    lazy_preprocess: Optional[bool] = field(
+        default=False,
+        metadata={"help": "If True, each text batch will preprocess during training or predict"},
+    )
+    # Predict arguments
+    test_data_path: Optional[str] = field(
+        default=None,
+        metadata={"help": "Path to test data for prediction"}
+    )
+    do_predict: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Whether to run predictions on the test set"}
+    )
 
 @dataclass
 class SFTClassificationConfig(SFTConfig):
@@ -219,6 +232,32 @@ def main(model_args, data_args, training_args):
     # Convert training args to SFTClassificationConfig
     sft_args = SFTClassificationConfig(**training_args.to_dict())
     
+    if data_args.do_predict:
+        # Initialize trainer with trained model
+        trainer = SFTClassificationTrainer(
+            model=model,
+            args=SFTClassificationConfig(**training_args.to_dict()),
+            data_collator=collate_fn,
+            processing_class=tokenizer,
+            num_labels=model_args.num_labels,
+        )
+
+        # Get predictions
+        test_dataset = data_module["test_dataset"]
+        predictions = trainer.predict(test_dataset)
+        
+        # Process and save predictions
+        probs = torch.softmax(torch.tensor(predictions.predictions), dim=-1).numpy()
+        results = pd.DataFrame({
+            "predicted_label": probs.argmax(axis=1),
+            **{f"prob_class_{i}": probs[:, i] for i in range(probs.shape[1])}
+        })
+        
+        output_path = os.path.join(training_args.output_dir, "predictions.parquet")
+        results.to_parquet(output_path)
+        print(f"Saved predictions to {output_path}")
+        return
+
     # Dataset preparation
     data_module = make_supervised_data_module(tokenizer, data_args, max_len=data_args.my_max_len)
     train_dataset = data_module["train_dataset"]
