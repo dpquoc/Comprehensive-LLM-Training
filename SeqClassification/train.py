@@ -157,7 +157,6 @@ class DataTrainingArguments:
         default=False,
         metadata={
             "help": "Whether to run predictions on the test set",
-            "aliases": ["--do-predict"]  # Add this line
         },
     )
 
