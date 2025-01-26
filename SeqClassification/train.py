@@ -154,9 +154,12 @@ class DataTrainingArguments:
         metadata={"help": "Path to test data for prediction"}
     )
     do_predict: Optional[bool] = field(
-        default=False,
-        metadata={"help": "Whether to run predictions on the test set"}
-    )
+            default=False,
+            metadata={
+                "help": "Whether to run predictions on the test set",
+                "aliases": ["--do-predict"]  # Add this line
+            },
+        )
 
 @dataclass
 class SFTClassificationConfig(SFTConfig):
