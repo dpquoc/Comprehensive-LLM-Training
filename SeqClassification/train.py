@@ -215,12 +215,17 @@ def compute_metrics(eval_preds: EvalPrediction) -> dict:
 def collate_fn(batch):
     input_ids = torch.stack([x['input_ids'] for x in batch])
     attention_mask = torch.stack([x['attention_mask'] for x in batch])
-    labels = torch.stack([x['labels'] for x in batch])
-    return {
-        'input_ids': input_ids,
-        'attention_mask': attention_mask,
-        'labels': labels
+    
+    batch_dict = {
+        "input_ids": input_ids,
+        "attention_mask": attention_mask
     }
+    
+    # Only add labels if they exist in the batch
+    if any("labels" in sample for sample in batch):
+        batch_dict["labels"] = torch.stack([x.get("labels", torch.tensor(-100)) for x in batch])
+    
+    return batch_dict
 
 def main(model_args, data_args, training_args):
     # Set seed for reproducibility
