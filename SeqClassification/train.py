@@ -236,7 +236,7 @@ def main(model_args, data_args, training_args):
         # Initialize trainer with trained model
         trainer = SFTClassificationTrainer(
             model=model,
-            args=SFTClassificationConfig(**training_args.to_dict()),
+            args=sft_args,
             data_collator=collate_fn,
             processing_class=tokenizer,
             num_labels=model_args.num_labels,
