@@ -239,6 +239,9 @@ def main(model_args, data_args, training_args):
     # Convert training args to SFTClassificationConfig
     sft_args = SFTClassificationConfig(**training_args.to_dict())
     
+    # Dataset preparation (moved outside the conditional)
+    data_module = make_supervised_data_module(tokenizer, data_args, max_len=data_args.my_max_len)
+    
     if data_args.my_do_predict:
         # Initialize trainer with trained model
         trainer = SFTClassificationTrainer(
@@ -265,8 +268,7 @@ def main(model_args, data_args, training_args):
         print(f"Saved predictions to {output_path}")
         return
 
-    # Dataset preparation
-    data_module = make_supervised_data_module(tokenizer, data_args, max_len=data_args.my_max_len)
+    # Training-specific setup
     train_dataset = data_module["train_dataset"]
     eval_dataset = data_module["eval_dataset"]
     
@@ -276,13 +278,13 @@ def main(model_args, data_args, training_args):
         args=sft_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        data_collator=collate_fn,  # Add this line
+        data_collator=collate_fn,
         processing_class=tokenizer,
         peft_config=peft_config,
         num_labels=model_args.num_labels,
     )
 
-    # Rest of your training code remains the same
+    # Training execution
     trainer.accelerator.print(f"{trainer.model}")
     
     checkpoint = None
