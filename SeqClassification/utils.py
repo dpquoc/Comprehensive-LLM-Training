@@ -297,6 +297,7 @@ def preprocess(
         labels=labels,
     )
 
+
 class SupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
 
@@ -308,11 +309,10 @@ class SupervisedDataset(Dataset):
         
         # Let preprocess handle the full dictionary including conversations and winner
         data_dict = simple_preprocess(sources, tokenizer, max_len, spread_max_length)
-        # data_dict = preprocess(sources, tokenizer, max_len, spread_max_length)
 
         self.input_ids = data_dict["input_ids"]
-        self.labels = data_dict["labels"]
         self.attention_mask = data_dict["attention_mask"]
+        self.labels = data_dict.get("labels")  # Use get to handle missing labels
 
     def _process_raw_data(self, raw_data: Union[List, pd.DataFrame]) -> List:
         """Convert input data to list format."""
@@ -333,11 +333,14 @@ class SupervisedDataset(Dataset):
         return len(self.input_ids)
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
-        return dict(
-            input_ids=self.input_ids[i],
-            labels=self.labels[i],
-            attention_mask=self.attention_mask[i],
-        )
+        item = {
+            "input_ids": self.input_ids[i],
+            "attention_mask": self.attention_mask[i],
+        }
+        if self.labels is not None:
+            item["labels"] = self.labels[i]
+        return item
+
 
 class LazySupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning with lazy loading."""
@@ -372,15 +375,14 @@ class LazySupervisedDataset(Dataset):
             return self.cached_data_dict[i]
 
         ret = simple_preprocess([self.raw_data[i]], self.tokenizer, self.max_len, self.spread_max_length)
-        # ret = preprocess([self.raw_data[i]], self.tokenizer, self.max_len, self.spread_max_length)
-        ret = {
+        processed_ret = {
             'input_ids': ret['input_ids'][0],
             'attention_mask': ret['attention_mask'][0],
-            'labels': ret['labels'][0]
         }
-        self.cached_data_dict[i] = ret
-
-        return ret
+        if 'labels' in ret:
+            processed_ret['labels'] = ret['labels'][0]
+        self.cached_data_dict[i] = processed_ret
+        return processed_ret
 
 def load_data(file_path: str) -> Union[List, pd.DataFrame]:
     """Load data from a file, supporting JSON, CSV, Excel, and Parquet."""
