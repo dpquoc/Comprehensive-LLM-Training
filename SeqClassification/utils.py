@@ -102,27 +102,31 @@ def simple_preprocess(
     A simplified preprocessing function that uses a template and tokenizes the full text.
     
     Args:
-        sources: Dictionary containing lists of 'prompt', 'response_a', 'response_b', and 'winner'
+        sources: Dictionary containing lists of 'prompt', 'response_a', 'response_b', and optionally 'winner'
         tokenizer: The tokenizer to use
         max_len: Maximum sequence length
         spread_max_length: Whether to equally distribute max_length among components
         
     Returns:
-        Dictionary containing input_ids, attention_mask, and labels tensors
+        Dictionary containing input_ids, attention_mask, and (optionally) labels tensors
     """
     # Convert list of dicts to dict of lists if necessary
     if isinstance(sources, list):
+        # Check if all items have 'winner' to determine if we should collect labels
+        has_winner = all('winner' in item for item in sources)
         converted_sources = {
             "prompt": [],
             "response_a": [],
             "response_b": [],
-            "winner": []
         }
+        if has_winner:
+            converted_sources["winner"] = []
         for item in sources:
             converted_sources["prompt"].append(item["prompt"])
             converted_sources["response_a"].append(item["response_a"])
             converted_sources["response_b"].append(item["response_b"])
-            converted_sources["winner"].append(item["winner"])
+            if has_winner:
+                converted_sources["winner"].append(item["winner"])
         sources = converted_sources
     
     # Cohere2 template
@@ -190,15 +194,20 @@ Response B:
         return_tensors="pt",
     )
     
-    # Create labels tensor
-    labels = torch.tensor([1 if w == 'model_b' else 0 for w in sources["winner"]], dtype=torch.long)
+    # Create labels tensor if 'winner' exists and is non-empty
+    labels = None
+    if "winner" in sources and len(sources["winner"]) > 0:
+        labels = torch.tensor([1 if w == 'model_b' else 0 for w in sources["winner"]], dtype=torch.long)
     
-    return {
+    # Prepare return dictionary
+    result = {
         "input_ids": tokenized.input_ids,
         "attention_mask": tokenized.attention_mask,
-        "labels": labels,
     }
-
+    if labels is not None:
+        result["labels"] = labels
+    
+    return result
 
 def preprocess(
     sources: Dict,
