@@ -153,7 +153,7 @@ class DataTrainingArguments:
         default=None,
         metadata={"help": "Path to test data for prediction"}
     )
-    do_predict: Optional[bool] = field(
+    my_do_predict: Optional[bool] = field(
         default=False,
         metadata={
             "help": "Whether to run predictions on the test set",
@@ -240,7 +240,7 @@ def main(model_args, data_args, training_args):
     # Convert training args to SFTClassificationConfig
     sft_args = SFTClassificationConfig(**training_args.to_dict())
     
-    if data_args.do_predict:
+    if data_args.my_do_predict:
         # Initialize trainer with trained model
         trainer = SFTClassificationTrainer(
             model=model,
