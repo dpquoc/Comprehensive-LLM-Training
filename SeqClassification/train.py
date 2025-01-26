@@ -215,15 +215,29 @@ def compute_metrics(eval_preds: EvalPrediction) -> dict:
     return {"acc": acc, "log_loss": loss}
 
 def collate_fn(batch):
-    input_ids = torch.stack([x['input_ids'] for x in batch])
-    attention_mask = torch.stack([x['attention_mask'] for x in batch])
+    # Calculate the maximum active token length in the batch
+    active_lengths = [x['attention_mask'].sum().item() for x in batch]
+    max_length_in_batch = max(active_lengths)
+    
+    # Truncate input_ids and attention_mask to this max length for each sample
+    truncated_input_ids = []
+    truncated_attention_mask = []
+    for x in batch:
+        input_ids = x['input_ids'][:max_length_in_batch]
+        attention_mask = x['attention_mask'][:max_length_in_batch]
+        truncated_input_ids.append(input_ids)
+        truncated_attention_mask.append(attention_mask)
+    
+    # Stack the truncated sequences
+    input_ids = torch.stack(truncated_input_ids)
+    attention_mask = torch.stack(truncated_attention_mask)
     
     batch_dict = {
         "input_ids": input_ids,
         "attention_mask": attention_mask
     }
     
-    # Only add labels if they exist in the batch
+    # Include labels if present (assumed to be per-sample, not sequences)
     if any("labels" in sample for sample in batch):
         batch_dict["labels"] = torch.stack([x.get("labels", torch.tensor(-100)) for x in batch])
     
