@@ -422,7 +422,7 @@ def make_supervised_data_module(
 
     # Load training data if in training mode
     train_dataset = None
-    if data_args.data_path and not data_args.my_do_predict:
+    if data_args.data_path:
         train_data = load_data(data_args.data_path)
         train_dataset = dataset_cls(
             train_data, tokenizer=tokenizer, max_len=data_args.my_max_len, 
@@ -431,7 +431,7 @@ def make_supervised_data_module(
 
     # Load evaluation data if provided
     eval_dataset = None
-    if data_args.eval_data_path and not data_args.my_do_predict:
+    if data_args.eval_data_path:
         eval_data = load_data(data_args.eval_data_path)
         eval_dataset = dataset_cls(
             eval_data, tokenizer=tokenizer, max_len=data_args.my_max_len,
@@ -444,7 +444,7 @@ def make_supervised_data_module(
         test_data = load_data(data_args.test_data_path)
         test_dataset = dataset_cls(
             test_data, tokenizer=tokenizer, max_len=data_args.my_max_len,
-            spread_max_length=data_args.spread_max_length, is_prediction=True
+            spread_max_length=data_args.spread_max_length
         )
 
     return dict(
