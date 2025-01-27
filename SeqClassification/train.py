@@ -1,5 +1,6 @@
 import os
 import sys
+import gc
 import pandas as pd
 from dataclasses import dataclass, field
 from typing import Optional, Union, Callable
@@ -257,21 +258,45 @@ def main(model_args, data_args, training_args):
     data_module = make_supervised_data_module(tokenizer, data_args, max_len=data_args.my_max_len)
     
     if data_args.my_do_predict:
-        # Initialize trainer with trained model
-        trainer = SFTClassificationTrainer(
-            model=model,
-            args=sft_args,
-            data_collator=collate_fn,
-            processing_class=tokenizer,
-            num_labels=model_args.num_labels,
+        # Load model and tokenizer
+        model.eval()  # Set model to evaluation mode
+
+        # Load test dataset
+        test_dataset = data_module["test_dataset"]
+
+        # Create DataLoader with collate_fn
+        from torch.utils.data import DataLoader
+        dataloader = DataLoader(
+            test_dataset,
+            batch_size=training_args.per_device_eval_batch_size,
+            collate_fn=collate_fn,
+            shuffle=False
         )
 
-        # Get predictions
-        test_dataset = data_module["test_dataset"]
-        predictions = trainer.predict(test_dataset)
+        # Move model to the appropriate device
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # Collect predictions
+        all_predictions = []
+        with torch.no_grad():
+            for batch in dataloader:
+                inputs = {
+                    "input_ids": batch["input_ids"].to(device),
+                    "attention_mask": batch["attention_mask"].to(device)
+                }
+                outputs = model(**inputs)
+                logits = outputs.logits
+                all_predictions.append(logits.cpu())
+
+                del outputs, inputs, batch
+                torch.cuda.empty_cache()
+                gc.collect()
+
+        # Process predictions
+        predictions = torch.cat(all_predictions).numpy()
+        probs = torch.softmax(torch.tensor(predictions), dim=-1).numpy()
         
-        # Process and save predictions
-        probs = torch.softmax(torch.tensor(predictions.predictions), dim=-1).numpy()
+        # Save results
         results = pd.DataFrame({
             "predicted_label": probs.argmax(axis=1),
             **{f"prob_class_{i}": probs[:, i] for i in range(probs.shape[1])}
