@@ -6,17 +6,13 @@ import packaging.version
 import torch
 import transformers
 from transformers.trainer_pt_utils import LabelSmoother
-from datasets import DatasetDict, load_dataset, load_from_disk
 from peft import get_peft_model
 from torch.utils.data import Dataset
 
-from datasets.builder import DatasetGenerationError
 from transformers import (
-    AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
     AutoModelForSequenceClassification,
-    Cohere2ForSequenceClassification
 )
 import pandas as pd
 from typing import Dict, Optional, List, Union
@@ -479,7 +475,7 @@ def create_and_prepare_model(args, data_args):
             bnb_config = BitsAndBytesConfig(load_in_8bit=args.use_8bit_quantization)
 
     torch_dtype = (
-        quant_storage_dtype if quant_storage_dtype and quant_storage_dtype.is_floating_point else torch.float32
+        quant_storage_dtype if quant_storage_dtype and quant_storage_dtype.is_floating_point else torch.bfloat16
     )
 
     model = AutoModelForSequenceClassification.from_pretrained(
