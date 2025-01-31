@@ -147,11 +147,17 @@ def preprocess(
             source = source[1:]
 
         input_id, target = [], []
-        system = [im_start] + _system + tokenizer(system_message).input_ids + [im_end] + nl_tokens
 
         ## System handling
+        # system = [im_start] + _system + tokenizer(system_message).input_ids + [im_end] + nl_tokens
         # input_id += system
-        # target += [im_start] + [IGNORE_TOKEN_ID] * (len(system)-3) + [im_end] + nl_tokens # Turn system off for Gemma model
+        # target += [im_start] + [IGNORE_TOKEN_ID] * (len(system)-3) + [im_end] + nl_tokens
+
+        # System handling
+        bos_token = tokenizer.convert_tokens_to_ids('<bos>')
+        system = [bos_token]
+        input_id += system
+        target += [bos_token]
 
         # Conversation handling
         assert len(input_id) == len(target)
