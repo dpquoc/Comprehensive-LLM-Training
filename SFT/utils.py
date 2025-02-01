@@ -182,6 +182,7 @@ def preprocess(
         print(f"target length: {len(target)}")
         print(f"Full final decoded input: {tokenizer.decode(input_id)}")
 
+        break
         assert len(input_id) == len(target)
         input_id += [tokenizer.pad_token_id] * (max_len - len(input_id))
         target += [IGNORE_TOKEN_ID] * (max_len - len(target))
