@@ -163,16 +163,16 @@ def preprocess(
         # Conversation handling
         for j, sentence in enumerate(source):
             role = roles[sentence["role"]]
-            _input_id = tokenizer(role).input_ids + nl_tokens + \
-                tokenizer(sentence["content"]).input_ids + [im_end] + nl_tokens
+            _input_id = tokenizer(role, add_special_tokens=False).input_ids + nl_tokens + \
+                tokenizer(sentence["content"], add_special_tokens=False).input_ids + [im_end] + nl_tokens
             input_id += _input_id
             # if role == '<|im_start|>user':
             if role == '<start_of_turn>user':
                 _target = [im_start] + [IGNORE_TOKEN_ID] * (len(_input_id)-3) + [im_end] + nl_tokens
             # elif role == '<|im_start|>assistant':
             elif role == '<start_of_turn>model':
-                _target = [im_start] + [IGNORE_TOKEN_ID] * len(tokenizer(role).input_ids) + \
-                    _input_id[len(tokenizer(role).input_ids)+1:-2] + [im_end] + nl_tokens
+                _target = [im_start] + [IGNORE_TOKEN_ID] * len(tokenizer(role, add_special_tokens=False).input_ids) + \
+                    _input_id[len(tokenizer(role, add_special_tokens=False).input_ids)+1:-2] + [im_end] + nl_tokens
             else:
                 raise NotImplementedError
             target += _target
