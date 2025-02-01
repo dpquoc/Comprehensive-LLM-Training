@@ -158,9 +158,9 @@ def preprocess(
         system = [bos_token]
         input_id += system
         target += [bos_token]
+        assert len(input_id) == len(target)
 
         # Conversation handling
-        assert len(input_id) == len(target)
         for j, sentence in enumerate(source):
             role = roles[sentence["role"]]
             _input_id = tokenizer(role).input_ids + nl_tokens + \
@@ -176,6 +176,9 @@ def preprocess(
             else:
                 raise NotImplementedError
             target += _target
+
+        print(f"input_id length: {len(input_id)}")
+        print(f"target length: {len(target)}")
         assert len(input_id) == len(target)
         input_id += [tokenizer.pad_token_id] * (max_len - len(input_id))
         target += [IGNORE_TOKEN_ID] * (max_len - len(target))
