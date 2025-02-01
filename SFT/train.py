@@ -119,7 +119,7 @@ def main(model_args, data_args, training_args):
     set_seed(training_args.seed)
 
     # model
-    model, peft_config, tokenizer = create_and_prepare_model(model_args, data_args)
+    model, peft_config, tokenizer = create_and_prepare_model(model_args, data_args, training_args)
 
     # gradient ckpt
     model.config.use_cache = not training_args.gradient_checkpointing
