@@ -135,10 +135,10 @@ def preprocess(
 
     im_start = tokenizer.convert_tokens_to_ids(start_text)
     im_end = tokenizer.convert_tokens_to_ids(end_text)
-    nl_tokens = tokenizer('\n').input_ids
-    _system = tokenizer('system').input_ids + nl_tokens
-    _user = tokenizer('user').input_ids + nl_tokens
-    _assistant = tokenizer('assistant').input_ids + nl_tokens
+    nl_tokens = tokenizer('\n', add_special_tokens=False).input_ids  # Add this flag
+    _system = tokenizer('system', add_special_tokens=False).input_ids + nl_tokens
+    _user = tokenizer('user', add_special_tokens=False).input_ids + nl_tokens
+    _assistant = tokenizer('assistant', add_special_tokens=False).input_ids + nl_tokens
 
     # Apply prompt templates
     input_ids, targets = [], []
@@ -181,7 +181,7 @@ def preprocess(
         print(f"input_id length: {len(input_id)}")
         print(f"target length: {len(target)}")
         print(f"Full final decoded input: {tokenizer.decode(input_id)}")
-        
+
         assert len(input_id) == len(target)
         input_id += [tokenizer.pad_token_id] * (max_len - len(input_id))
         target += [IGNORE_TOKEN_ID] * (max_len - len(target))
