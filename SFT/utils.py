@@ -258,12 +258,11 @@ def preprocess(
             _input_id[len(model_role):-2] + [im_end] + nl_tokens
         target += _target
 
-        print("\nFinal lengths before assertion:")
-        print(f"input_id length: {len(input_id)}")
-        print(f"target length: {len(target)}")
-        print(f"Full final decoded input: {tokenizer.decode(input_id)}")
-
-        break
+        # print("\nFinal lengths before assertion:")
+        # print(f"input_id length: {len(input_id)}")
+        # print(f"target length: {len(target)}")
+        # print(f"Full final decoded input: {tokenizer.decode(input_id)}")
+        # break
 
         assert len(input_id) == len(target)
         input_id += [tokenizer.pad_token_id] * (max_len - len(input_id))
