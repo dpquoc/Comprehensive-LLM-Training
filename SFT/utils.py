@@ -197,6 +197,7 @@ def simple_preprocess(
 #     )
 
 
+# For Gemma 2 A/B
 def preprocess(
     sources,
     tokenizer: transformers.PreTrainedTokenizer,
@@ -210,61 +211,110 @@ def preprocess(
     im_start = tokenizer.convert_tokens_to_ids(start_text)
     im_end = tokenizer.convert_tokens_to_ids(end_text)
     nl_tokens = tokenizer('\n', add_special_tokens=False).input_ids
-    
+    _system = tokenizer('system', add_special_tokens=False).input_ids + nl_tokens
+    _user = tokenizer('user', add_special_tokens=False).input_ids + nl_tokens
+    _assistant = tokenizer('assistant', add_special_tokens=False).input_ids + nl_tokens
+
     input_ids, targets = [], []
     for i, source in enumerate(sources):
+        if len(source) < 2:
+            continue  # Skip invalid sources
+
+        # Ensure the first message is from the user
         if roles[source[0]["role"]] != roles["user"]:
-            source = source[1:]
+            continue  # Skip if the first message is not user
 
-        input_id, target = [], []
-
-        # System handling
+        # System handling (bos_token)
         bos_token = tokenizer.convert_tokens_to_ids('<bos>')
-        input_id += [bos_token]
-        target += [bos_token]
+        system = [bos_token]
+        input_id = system.copy()
+        target = [bos_token]
 
-        # Calculate token lengths for each component
-        user_role_tokens = tokenizer(roles["user"], add_special_tokens=False).input_ids + nl_tokens
-        model_role_tokens = tokenizer(roles["assistant"], add_special_tokens=False).input_ids + nl_tokens
-        
-        # Get model content (to preserve)
-        model_content_tokens = tokenizer(source[1]["content"], add_special_tokens=False).input_ids
-        
-        # Calculate space for user content
-        end_tokens_len = len([im_end] + nl_tokens)
-        model_total_len = len(model_role_tokens) + len(model_content_tokens) + end_tokens_len
-        user_role_len = len(user_role_tokens)
-        available_space = max_len - len(input_id) - model_total_len - user_role_len - end_tokens_len
-        
-        # Truncate user content if needed
-        user_content_tokens = tokenizer(source[0]["content"], add_special_tokens=False).input_ids
-        if len(user_content_tokens) > available_space:
-            user_content_tokens = user_content_tokens[:available_space]
-            
-        # Add user turn
-        user_tokens = user_role_tokens + user_content_tokens + [im_end] + nl_tokens
-        input_id.extend(user_tokens)
-        target.extend([im_start] + [IGNORE_TOKEN_ID] * (len(user_tokens) - 1))
-        
-        # Add model turn
-        model_tokens = model_role_tokens + model_content_tokens + [im_end] + nl_tokens
-        input_id.extend(model_tokens)
-        # For model output, we want to predict the content but ignore the role tokens
-        target.extend([im_start] + [IGNORE_TOKEN_ID] * len(model_role_tokens))
-        target.extend(model_content_tokens + [im_end] + nl_tokens)
-        
-        # Verify lengths match before padding
-        assert len(input_id) == len(target), f"Length mismatch: {len(input_id)} != {len(target)}"
-        
-        # Add padding
-        if len(input_id) < max_len:
-            padding_length = max_len - len(input_id)
-            input_id.extend([tokenizer.pad_token_id] * padding_length)
-            target.extend([IGNORE_TOKEN_ID] * padding_length)
-        else:
-            input_id = input_id[:max_len]
-            target = target[:max_len]
-            
+        # Process each sentence in the source (user and assistant)
+        for j, sentence in enumerate(source):
+            role = roles[sentence["role"]]
+            current_role = sentence["role"]
+
+            if j == 0:  # User turn: handle truncation based on assistant's content
+                # Precompute assistant's part
+                assistant_sentence = source[1]
+                assistant_role = roles[assistant_sentence["role"]]
+                assistant_content = assistant_sentence["content"]
+                assistant_role_tokens = tokenizer(assistant_role, add_special_tokens=False).input_ids
+                assistant_content_tokens = tokenizer(assistant_content, add_special_tokens=False).input_ids
+                assistant_part = (
+                    assistant_role_tokens +
+                    nl_tokens +
+                    assistant_content_tokens +
+                    [im_end] +
+                    nl_tokens
+                )
+                assistant_part_length = len(assistant_part)
+
+                # Calculate available space for user's content
+                system_length = len(system)
+                user_role_tokens = tokenizer(role, add_special_tokens=False).input_ids
+                user_role_length = len(user_role_tokens)
+                user_end_part = nl_tokens + [im_end] + nl_tokens
+                user_end_length = len(user_end_part)
+                available_space = max_len - (
+                    system_length +
+                    user_role_length +
+                    user_end_length +
+                    assistant_part_length
+                )
+
+                # Tokenize user's content with truncation
+                user_content = sentence["content"]
+                user_content_tokens = tokenizer(user_content, add_special_tokens=False).input_ids
+                if available_space > 0:
+                    user_content_tokens = user_content_tokens[:available_space]
+                else:
+                    user_content_tokens = []
+
+                # Build user's input_id part
+                _input_id = (
+                    user_role_tokens +
+                    nl_tokens +
+                    user_content_tokens +
+                    [im_end] +
+                    nl_tokens
+                )
+            else:  # Assistant turn: use full content
+                _input_id = (
+                    tokenizer(role, add_special_tokens=False).input_ids +
+                    nl_tokens +
+                    tokenizer(sentence["content"], add_special_tokens=False).input_ids +
+                    [im_end] +
+                    nl_tokens
+                )
+
+            # Append to input_id and target
+            input_id += _input_id
+
+            # Target processing
+            if current_role == "user":
+                _target = [im_start] + [IGNORE_TOKEN_ID] * (len(_input_id) - 3) + [im_end] + nl_tokens
+            elif current_role == "assistant":
+                role_tokens = tokenizer(role, add_special_tokens=False).input_ids
+                _target = (
+                    [im_start] +
+                    [IGNORE_TOKEN_ID] * len(role_tokens) +
+                    _input_id[len(role_tokens) + 1:-2] +
+                    [im_end] +
+                    nl_tokens
+                )
+            else:
+                raise NotImplementedError(f"Role {current_role} not supported")
+            target += _target
+
+        # Pad or truncate to max_len
+        input_id = input_id[:max_len]
+        target = target[:max_len]
+        pad_len = max_len - len(input_id)
+        input_id += [tokenizer.pad_token_id] * pad_len
+        target += [IGNORE_TOKEN_ID] * pad_len
+
         input_ids.append(input_id)
         targets.append(target)
 
