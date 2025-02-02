@@ -119,39 +119,107 @@ def simple_preprocess(
     }
 
 
+# def preprocess(
+#     sources,
+#     tokenizer: transformers.PreTrainedTokenizer,
+#     max_len: int = 2048,
+#     system_message: str = "You are a helpful assistant."
+# ) -> Dict:
+#     # start_text = '<|im_start|>'
+#     # end_text = '<|im_end|>'
+#     # roles = {"user": "<|im_start|>user", "assistant": "<|im_start|>assistant"}
+
+#     start_text = '<start_of_turn>'
+#     end_text = '<end_of_turn>'
+#     roles = {"user": "<start_of_turn>user", "assistant": "<start_of_turn>model"}
+
+#     im_start = tokenizer.convert_tokens_to_ids(start_text)
+#     im_end = tokenizer.convert_tokens_to_ids(end_text)
+#     nl_tokens = tokenizer('\n', add_special_tokens=False).input_ids  # Add this flag
+#     _system = tokenizer('system', add_special_tokens=False).input_ids + nl_tokens
+#     _user = tokenizer('user', add_special_tokens=False).input_ids + nl_tokens
+#     _assistant = tokenizer('assistant', add_special_tokens=False).input_ids + nl_tokens
+
+#     # Apply prompt templates
+#     input_ids, targets = [], []
+#     for i, source in enumerate(sources):
+#         if roles[source[0]["role"]] != roles["user"]:
+#             source = source[1:]
+
+#         input_id, target = [], []
+
+#         ## System handling
+#         # system = [im_start] + _system + tokenizer(system_message).input_ids + [im_end] + nl_tokens
+#         # input_id += system
+#         # target += [im_start] + [IGNORE_TOKEN_ID] * (len(system)-3) + [im_end] + nl_tokens
+
+#         # System handling
+#         bos_token = tokenizer.convert_tokens_to_ids('<bos>')
+#         system = [bos_token]
+#         input_id += system
+#         target += [bos_token]
+#         assert len(input_id) == len(target)
+
+#         # Conversation handling
+#         for j, sentence in enumerate(source):
+#             role = roles[sentence["role"]]
+
+#             # Input IDs
+#             _input_id = tokenizer(role, add_special_tokens=False).input_ids + nl_tokens + \
+#                 tokenizer(sentence["content"], add_special_tokens=False).input_ids + [im_end] + nl_tokens
+#             input_id += _input_id
+
+#             # Target IDs
+#             # if role == '<|im_start|>user':
+#             if role == '<start_of_turn>user':
+#                 _target = [im_start] + [IGNORE_TOKEN_ID] * (len(_input_id)-3) + [im_end] + nl_tokens
+#             # elif role == '<|im_start|>assistant':
+#             elif role == '<start_of_turn>model':
+#                 _target = [im_start] + [IGNORE_TOKEN_ID] * len(tokenizer(role, add_special_tokens=False).input_ids) + \
+#                     _input_id[len(tokenizer(role, add_special_tokens=False).input_ids)+1:-2] + [im_end] + nl_tokens
+#             else:
+#                 raise NotImplementedError
+#             target += _target
+
+#         # break
+#         assert len(input_id) == len(target)
+#         input_id += [tokenizer.pad_token_id] * (max_len - len(input_id))
+#         target += [IGNORE_TOKEN_ID] * (max_len - len(target))
+#         input_ids.append(input_id[:max_len])
+#         targets.append(target[:max_len])
+#     input_ids = torch.tensor(input_ids, dtype=torch.int)
+#     targets = torch.tensor(targets, dtype=torch.int)
+
+#     return dict(
+#         input_ids=input_ids,
+#         labels=targets,
+#         attention_mask=input_ids.ne(tokenizer.pad_token_id),
+#     )
+
+
 def preprocess(
     sources,
     tokenizer: transformers.PreTrainedTokenizer,
     max_len: int = 2048,
     system_message: str = "You are a helpful assistant."
 ) -> Dict:
-    # start_text = '<|im_start|>'
-    # end_text = '<|im_end|>'
-    # roles = {"user": "<|im_start|>user", "assistant": "<|im_start|>assistant"}
-
     start_text = '<start_of_turn>'
     end_text = '<end_of_turn>'
     roles = {"user": "<start_of_turn>user", "assistant": "<start_of_turn>model"}
 
     im_start = tokenizer.convert_tokens_to_ids(start_text)
     im_end = tokenizer.convert_tokens_to_ids(end_text)
-    nl_tokens = tokenizer('\n', add_special_tokens=False).input_ids  # Add this flag
+    nl_tokens = tokenizer('\n', add_special_tokens=False).input_ids
     _system = tokenizer('system', add_special_tokens=False).input_ids + nl_tokens
     _user = tokenizer('user', add_special_tokens=False).input_ids + nl_tokens
     _assistant = tokenizer('assistant', add_special_tokens=False).input_ids + nl_tokens
 
-    # Apply prompt templates
     input_ids, targets = [], []
     for i, source in enumerate(sources):
         if roles[source[0]["role"]] != roles["user"]:
             source = source[1:]
 
         input_id, target = [], []
-
-        ## System handling
-        # system = [im_start] + _system + tokenizer(system_message).input_ids + [im_end] + nl_tokens
-        # input_id += system
-        # target += [im_start] + [IGNORE_TOKEN_ID] * (len(system)-3) + [im_end] + nl_tokens
 
         # System handling
         bos_token = tokenizer.convert_tokens_to_ids('<bos>')
@@ -160,34 +228,42 @@ def preprocess(
         target += [bos_token]
         assert len(input_id) == len(target)
 
-        # Conversation handling
-        for j, sentence in enumerate(source):
-            role = roles[sentence["role"]]
-            _input_id = tokenizer(role, add_special_tokens=False).input_ids + nl_tokens + \
-                tokenizer(sentence["content"], add_special_tokens=False).input_ids + [im_end] + nl_tokens
-            input_id += _input_id
-            # if role == '<|im_start|>user':
-            if role == '<start_of_turn>user':
-                _target = [im_start] + [IGNORE_TOKEN_ID] * (len(_input_id)-3) + [im_end] + nl_tokens
-            # elif role == '<|im_start|>assistant':
-            elif role == '<start_of_turn>model':
-                _target = [im_start] + [IGNORE_TOKEN_ID] * len(tokenizer(role, add_special_tokens=False).input_ids) + \
-                    _input_id[len(tokenizer(role, add_special_tokens=False).input_ids)+1:-2] + [im_end] + nl_tokens
-            else:
-                raise NotImplementedError
-            target += _target
+        # Calculate available space for user content
+        user_role = tokenizer(roles["user"], add_special_tokens=False).input_ids + nl_tokens
+        model_role = tokenizer(roles["assistant"], add_special_tokens=False).input_ids + nl_tokens
+        
+        # Get model content first (we want to preserve this)
+        model_content = tokenizer(source[1]["content"], add_special_tokens=False).input_ids
+        
+        # Calculate remaining space for user content
+        model_total_length = len(model_role) + len(model_content) + 2  # +2 for end tokens
+        user_role_length = len(user_role)
+        remaining_space = max_len - len(system) - model_total_length - user_role_length - 2  # +2 for end tokens
 
-        # print("\nFinal lengths before assertion:")
-        # print(f"input_id length: {len(input_id)}")
-        # print(f"target length: {len(target)}")
-        # print(f"Full final decoded input: {tokenizer.decode(input_id)}")
+        # Truncate user content if necessary
+        user_content = tokenizer(source[0]["content"], add_special_tokens=False).input_ids
+        if len(user_content) > remaining_space:
+            user_content = user_content[:remaining_space]
 
-        # break
+        # Add user turn
+        _input_id = user_role + user_content + [im_end] + nl_tokens
+        input_id += _input_id
+        _target = [im_start] + [IGNORE_TOKEN_ID] * (len(_input_id)-3) + [im_end] + nl_tokens
+        target += _target
+
+        # Add model turn (complete)
+        _input_id = model_role + model_content + [im_end] + nl_tokens
+        input_id += _input_id
+        _target = [im_start] + [IGNORE_TOKEN_ID] * len(model_role) + \
+            _input_id[len(model_role):-2] + [im_end] + nl_tokens
+        target += _target
+
         assert len(input_id) == len(target)
         input_id += [tokenizer.pad_token_id] * (max_len - len(input_id))
         target += [IGNORE_TOKEN_ID] * (max_len - len(target))
         input_ids.append(input_id[:max_len])
         targets.append(target[:max_len])
+
     input_ids = torch.tensor(input_ids, dtype=torch.int)
     targets = torch.tensor(targets, dtype=torch.int)
 
@@ -196,7 +272,6 @@ def preprocess(
         labels=targets,
         attention_mask=input_ids.ne(tokenizer.pad_token_id),
     )
-
 
 
 class SupervisedDataset(Dataset):
