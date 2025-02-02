@@ -308,13 +308,12 @@ def preprocess(
                 raise NotImplementedError(f"Role {current_role} not supported")
             target += _target
 
-        print("\nFinal lengths before assertion:")
-        print(f"input_id length: {len(input_id)}")
-        print(f"target length: {len(target)}")
-        print(f"Full final decoded input: {tokenizer.decode(input_id)}")
-        break
+        # print("\nFinal lengths before assertion:")
+        # print(f"input_id length: {len(input_id)}")
+        # print(f"target length: {len(target)}")
+        # print(f"Full final decoded input: {tokenizer.decode(input_id)}")
+        # break
         assert len(input_id) == len(target)
-        
 
         # Pad or truncate to max_len
         input_id = input_id[:max_len]
