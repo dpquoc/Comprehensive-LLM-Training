@@ -12,15 +12,17 @@ This project implements a comprehensive training pipeline for Large Language Mod
 ## Tools & Technologies
 - [Hugging Face Transformers](https://huggingface.co/docs/transformers/)
 - [PEFT LoRA](https://huggingface.co/docs/peft)
+- [FlashAttention-2]([https://huggingface.co/docs/peft](https://github.com/Dao-AILab/flash-attention))
 - [DeepSpeed](https://www.deepspeed.ai/)
 - [Fully Sharded Data Parallel (FSPD)](https://github.com/facebookresearch/Fairseq)
 - [Unsloth](https://github.com/unslothai/unsloth)
 - [BitsandBytes (BnB)](https://github.com/TimDettmers/bitsandbytes)
 
 ## Installation
-
+**update later**
 
 ## Usage
+**update later**
 
 
 ## Configuration
